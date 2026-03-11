@@ -51,6 +51,30 @@ function obtenerRango(filtro: Filtro, offset: number): { desde: Date, hasta: Dat
   return { desde, hasta, label }
 }
 
+const TooltipVentas = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm">
+        <p className="font-semibold text-gray-800 mb-1">{label}</p>
+        <p className="text-amber-700 font-bold">${Number(payload[0].value).toLocaleString('es-AR')}</p>
+      </div>
+    )
+  }
+  return null
+}
+
+const TooltipTickets = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm">
+        <p className="font-semibold text-gray-800 mb-1">{label}</p>
+        <p className="text-amber-700 font-bold">{payload[0].value} tickets</p>
+      </div>
+    )
+  }
+  return null
+}
+
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [cierres, setCierres] = useState<any[]>([])
@@ -235,15 +259,24 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                       <XAxis
                         type="number"
-                        tick={{ fontSize: 11 }}
+                        tick={{ fontSize: 11, fill: '#6b7280' }}
                         tickFormatter={(v) => `$${Number(v).toLocaleString('es-AR')}`}
+                        axisLine={false}
+                        tickLine={false}
                       />
-                      <YAxis type="category" dataKey="nombre" tick={{ fontSize: 12 }} width={90} />
-                      <Tooltip formatter={(value: any) => [`$${Number(value).toLocaleString('es-AR')}`, 'Ventas']} />
-                      <Bar dataKey="ventas" radius={[0, 4, 4, 0]}>
+                      <YAxis
+                        type="category"
+                        dataKey="nombre"
+                        tick={{ fontSize: 12, fill: '#374151', fontWeight: 600 }}
+                        width={90}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<TooltipVentas />} cursor={{ fill: 'transparent' }} />
+                      <Bar dataKey="ventas" radius={[0, 6, 6, 0]}>
                         {datos.map((_, i) => (
                           <Cell key={i} fill={COLORES[i % COLORES.length]} />
                         ))}
@@ -257,11 +290,23 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por vendedora</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis type="category" dataKey="nombre" tick={{ fontSize: 12 }} width={90} />
-                      <Tooltip formatter={(value: any) => [value, 'Tickets']} />
-                      <Bar dataKey="tickets" radius={[0, 4, 4, 0]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 11, fill: '#6b7280' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="nombre"
+                        tick={{ fontSize: 12, fill: '#374151', fontWeight: 600 }}
+                        width={90}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip content={<TooltipTickets />} cursor={{ fill: 'transparent' }} />
+                      <Bar dataKey="tickets" radius={[0, 6, 6, 0]}>
                         {datos.map((_, i) => (
                           <Cell key={i} fill={COLORES[i % COLORES.length]} />
                         ))}
