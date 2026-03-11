@@ -83,8 +83,8 @@ export default function VentasPage() {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow px-5 py-4 text-center">
             <p className="text-sm text-gray-500 mb-1">Total vendido</p>
-            <p className="text-2xl font-bold text-blue-700">
-              ${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            <p className="text-xl font-bold text-blue-700 break-all">
+              ${totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
             </p>
           </div>
           <div className="bg-white rounded-xl shadow px-5 py-4 text-center">
@@ -133,8 +133,8 @@ export default function VentasPage() {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-blue-700">
-                      ${Number(cierre.total_ventas).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                    <p className="text-lg font-bold text-blue-700">
+                      ${Number(cierre.total_ventas).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
                     </p>
                     <p className="text-sm text-gray-500">{cierre.cantidad_tickets} tickets</p>
                   </div>
