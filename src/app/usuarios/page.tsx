@@ -195,8 +195,6 @@ export default function UsuariosPage() {
                 </select>
               </div>
 
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-
               <button
                 onClick={crearUsuario}
                 disabled={guardando || !nombre || !email || !password}
@@ -214,22 +212,28 @@ export default function UsuariosPage() {
           <div className="space-y-3">
             {usuarios.map((u) => (
               <div key={u.id}>
-                <div className={`bg-white rounded-xl shadow px-5 py-4 flex justify-between items-center ${!u.activo ? 'opacity-50' : ''}`}>
-                  <div>
-                    <p className="font-semibold text-gray-800">{u.nombre}</p>
-                    <p className="text-sm text-gray-500">{u.email}</p>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${rolColor(u.rol)}`}>
-                      {rolNombre(u.rol)}
+                <div className={`bg-white rounded-xl shadow p-4 ${!u.activo ? 'opacity-50' : ''}`}>
+                  
+                  {/* Info del usuario */}
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="font-semibold text-gray-800">{u.nombre}</p>
+                      <p className="text-sm text-gray-500">{u.email}</p>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${rolColor(u.rol)}`}>
+                        {rolNombre(u.rol)}
+                      </span>
+                    </div>
+                    <span className={`text-xs font-medium ${u.activo ? 'text-green-600' : 'text-gray-400'}`}>
+                      {u.activo ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
+
+                  {/* Botones — solo para no admin */}
                   {u.rol !== 'admin' && (
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs ${u.activo ? 'text-green-600' : 'text-gray-400'}`}>
-                        {u.activo ? 'Activo' : 'Inactivo'}
-                      </span>
+                    <div className="flex gap-2 pt-2 border-t border-gray-100">
                       <button
                         onClick={() => toggleActivo(u)}
-                        className={`text-sm px-3 py-1 rounded-lg transition ${
+                        className={`flex-1 text-sm font-medium py-1.5 rounded-lg transition ${
                           u.activo
                             ? 'bg-red-100 text-red-600 hover:bg-red-200'
                             : 'bg-green-100 text-green-600 hover:bg-green-200'
@@ -239,9 +243,9 @@ export default function UsuariosPage() {
                       </button>
                       <button
                         onClick={() => setConfirmEliminar(u.id)}
-                        className="text-sm px-3 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition"
+                        className="px-4 text-sm font-medium py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition"
                       >
-                        🗑️
+                        🗑️ Eliminar
                       </button>
                     </div>
                   )}
@@ -249,20 +253,20 @@ export default function UsuariosPage() {
 
                 {/* Confirmación eliminar */}
                 {confirmEliminar === u.id && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 mt-1">
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-4 mt-1">
                     <p className="text-sm text-red-700 font-medium mb-3">
                       ¿Seguro que querés eliminar a <strong>{u.nombre}</strong>? Esta acción no se puede deshacer.
                     </p>
                     <div className="flex gap-2">
                       <button
                         onClick={() => eliminarUsuario(u.id)}
-                        className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition"
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2 rounded-lg transition"
                       >
                         Sí, eliminar
                       </button>
                       <button
                         onClick={() => setConfirmEliminar(null)}
-                        className="bg-white border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded-lg hover:bg-gray-50 transition"
+                        className="flex-1 bg-white border border-gray-300 text-gray-600 text-sm py-2 rounded-lg hover:bg-gray-50 transition"
                       >
                         Cancelar
                       </button>
