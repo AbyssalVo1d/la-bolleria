@@ -20,7 +20,6 @@ function obtenerRango(filtro: Filtro, offset: number): { desde: Date, hasta: Dat
   let label = ''
 
   if (filtro === 'semana') {
-    // Lunes de la semana actual + offset
     const dia = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1
     desde = new Date(hoy)
     desde.setDate(hoy.getDate() - dia + offset * 7)
@@ -88,7 +87,6 @@ export default function DashboardPage() {
 
   const rango = obtenerRango(filtro, offset)
 
-  // Ventas por vendedora
   const ventasPorVendedora = () => {
     const mapa: Record<string, { nombre: string, ventas: number, tickets: number }> = {}
     cierres.forEach(c => {
@@ -174,9 +172,8 @@ export default function DashboardPage() {
 
         {usuario.rol === 'admin' && (
           <>
-            {/* Selector de período con navegación */}
+            {/* Selector de período */}
             <div className="bg-white rounded-xl shadow px-5 py-4 mb-6">
-              {/* Tipo de período */}
               <div className="flex gap-2 mb-3">
                 {(['semana', 'mes', 'trimestre', 'anio'] as Filtro[]).map(f => (
                   <button
@@ -190,8 +187,6 @@ export default function DashboardPage() {
                   </button>
                 ))}
               </div>
-
-              {/* Navegación con flechas y período actual */}
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => setOffset(offset - 1)}
