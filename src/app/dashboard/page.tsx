@@ -6,24 +6,63 @@ import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, LineChart, Line
+  Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
+
+const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
+
+type Filtro = 'semana' | 'mes' | 'trimestre' | 'anio'
+
+function obtenerRango(filtro: Filtro, offset: number): { desde: Date, hasta: Date, label: string } {
+  const hoy = new Date()
+  let desde = new Date()
+  let hasta = new Date()
+  let label = ''
+
+  if (filtro === 'semana') {
+    // Lunes de la semana actual + offset
+    const dia = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1
+    desde = new Date(hoy)
+    desde.setDate(hoy.getDate() - dia + offset * 7)
+    desde.setHours(0, 0, 0, 0)
+    hasta = new Date(desde)
+    hasta.setDate(desde.getDate() + 6)
+    hasta.setHours(23, 59, 59, 999)
+    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' }
+    label = `${desde.toLocaleDateString('es-AR', opts)} al ${hasta.toLocaleDateString('es-AR', opts)} ${hasta.getFullYear()}`
+  } else if (filtro === 'mes') {
+    desde = new Date(hoy.getFullYear(), hoy.getMonth() + offset, 1)
+    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + offset + 1, 0, 23, 59, 59)
+    label = desde.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    label = label.charAt(0).toUpperCase() + label.slice(1)
+  } else if (filtro === 'trimestre') {
+    const trimestre = Math.floor(hoy.getMonth() / 3) + offset
+    const anio = hoy.getFullYear() + Math.floor(trimestre / 4)
+    const trimNorm = ((trimestre % 4) + 4) % 4
+    desde = new Date(anio, trimNorm * 3, 1)
+    hasta = new Date(anio, trimNorm * 3 + 3, 0, 23, 59, 59)
+    label = `T${trimNorm + 1} ${anio}`
+  } else {
+    const anio = hoy.getFullYear() + offset
+    desde = new Date(anio, 0, 1)
+    hasta = new Date(anio, 11, 31, 23, 59, 59)
+    label = `${anio}`
+  }
+
+  return { desde, hasta, label }
+}
 
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [cierres, setCierres] = useState<any[]>([])
-  const [filtro, setFiltro] = useState('mes')
+  const [filtro, setFiltro] = useState<Filtro>('mes')
+  const [offset, setOffset] = useState(0)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    iniciar()
-  }, [])
-
-  useEffect(() => {
-    if (usuario) cargarDatos()
-  }, [filtro, usuario])
+  useEffect(() => { iniciar() }, [])
+  useEffect(() => { if (usuario) cargarDatos() }, [filtro, offset, usuario])
 
   const iniciar = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -34,34 +73,23 @@ export default function DashboardPage() {
 
   const cargarDatos = async () => {
     setLoading(true)
-    let fechaDesde = new Date()
-
-    if (filtro === 'semana') fechaDesde.setDate(fechaDesde.getDate() - 7)
-    else if (filtro === 'mes') fechaDesde.setMonth(fechaDesde.getMonth() - 1)
-    else if (filtro === 'trimestre') fechaDesde.setMonth(fechaDesde.getMonth() - 3)
-    else if (filtro === 'anio') fechaDesde.setFullYear(fechaDesde.getFullYear() - 1)
+    const { desde, hasta } = obtenerRango(filtro, offset)
 
     const { data } = await supabase
       .from('cierres_turno')
       .select('*, usuarios(nombre)')
-      .gte('fecha', fechaDesde.toISOString().split('T')[0])
+      .gte('fecha', desde.toISOString().split('T')[0])
+      .lte('fecha', hasta.toISOString().split('T')[0])
       .order('fecha', { ascending: true })
 
     setCierres(data || [])
     setLoading(false)
   }
 
-  const datosGrafico = () => {
-    const mapa: Record<string, { fecha: string, ventas: number, tickets: number }> = {}
-    cierres.forEach(c => {
-      if (!mapa[c.fecha]) mapa[c.fecha] = { fecha: c.fecha, ventas: 0, tickets: 0 }
-      mapa[c.fecha].ventas += Number(c.total_ventas)
-      mapa[c.fecha].tickets += c.cantidad_tickets
-    })
-    return Object.values(mapa)
-  }
+  const rango = obtenerRango(filtro, offset)
 
-  const rankingVendedoras = () => {
+  // Ventas por vendedora
+  const ventasPorVendedora = () => {
     const mapa: Record<string, { nombre: string, ventas: number, tickets: number }> = {}
     cierres.forEach(c => {
       const nombre = c.usuarios?.nombre || 'Sin nombre'
@@ -72,14 +100,18 @@ export default function DashboardPage() {
     return Object.values(mapa).sort((a, b) => b.ventas - a.ventas)
   }
 
-  const totalVentas = cierres.reduce((sum, c) => sum + Number(c.total_ventas), 0)
-  const totalTickets = cierres.reduce((sum, c) => sum + c.cantidad_tickets, 0)
-  const datos = datosGrafico()
-  const ranking = rankingVendedoras()
+  const datos = ventasPorVendedora()
+  const totalVentas = datos.reduce((s, d) => s + d.ventas, 0)
+  const totalTickets = datos.reduce((s, d) => s + d.tickets, 0)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  const cambiarFiltro = (f: Filtro) => {
+    setFiltro(f)
+    setOffset(0)
   }
 
   if (!usuario) return (
@@ -140,23 +172,44 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Solo admin ve gráficos */}
         {usuario.rol === 'admin' && (
           <>
-            {/* Filtro período */}
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-sm font-medium text-gray-700">Ver:</span>
-              {['semana', 'mes', 'trimestre', 'anio'].map(f => (
+            {/* Selector de período con navegación */}
+            <div className="bg-white rounded-xl shadow px-5 py-4 mb-6">
+              {/* Tipo de período */}
+              <div className="flex gap-2 mb-3">
+                {(['semana', 'mes', 'trimestre', 'anio'] as Filtro[]).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => cambiarFiltro(f)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition ${
+                      filtro === f ? 'bg-amber-600 text-white' : 'bg-amber-50 text-gray-600 hover:bg-amber-100'
+                    }`}
+                  >
+                    {f === 'semana' ? 'Semana' : f === 'mes' ? 'Mes' : f === 'trimestre' ? 'Trimestre' : 'Año'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Navegación con flechas y período actual */}
+              <div className="flex items-center justify-between">
                 <button
-                  key={f}
-                  onClick={() => setFiltro(f)}
-                  className={`px-4 py-1 rounded-full text-sm font-medium transition ${
-                    filtro === f ? 'bg-amber-600 text-white' : 'bg-white text-gray-600 hover:bg-amber-50'
-                  }`}
+                  onClick={() => setOffset(offset - 1)}
+                  className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition"
                 >
-                  {f === 'semana' ? 'Semana' : f === 'mes' ? 'Mes' : f === 'trimestre' ? 'Trimestre' : 'Año'}
+                  ←
                 </button>
-              ))}
+                <span className="text-sm font-semibold text-amber-800 text-center">
+                  {rango.label}
+                </span>
+                <button
+                  onClick={() => setOffset(Math.min(offset + 1, 0))}
+                  disabled={offset === 0}
+                  className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition disabled:opacity-30"
+                >
+                  →
+                </button>
+              </div>
             </div>
 
             {/* KPIs */}
@@ -178,84 +231,68 @@ export default function DashboardPage() {
             ) : datos.length === 0 ? (
               <div className="bg-white rounded-xl shadow p-8 text-center text-gray-500">
                 <p className="text-3xl mb-2">📊</p>
-                <p>No hay datos para el período seleccionado</p>
+                <p>No hay datos para <strong>{rango.label}</strong></p>
               </div>
             ) : (
               <>
-                {/* Gráfico ventas por fecha */}
+                {/* Gráfico ventas por vendedora */}
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por día</h3>
+                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={datos}>
+                    <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) => `$${Number(v).toLocaleString('es-AR')}`}
+                      />
+                      <YAxis type="category" dataKey="nombre" tick={{ fontSize: 12 }} width={90} />
                       <Tooltip formatter={(value: any) => [`$${Number(value).toLocaleString('es-AR')}`, 'Ventas']} />
-                      <Bar dataKey="ventas" fill="#d97706" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ventas" radius={[0, 4, 4, 0]}>
+                        {datos.map((_, i) => (
+                          <Cell key={i} fill={COLORES[i % COLORES.length]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Gráfico tickets por fecha */}
+                {/* Gráfico tickets por vendedora */}
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por día</h3>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={datos}>
+                  <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por vendedora</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="nombre" tick={{ fontSize: 12 }} width={90} />
                       <Tooltip formatter={(value: any) => [value, 'Tickets']} />
-                      <Line type="monotone" dataKey="tickets" stroke="#2563eb" strokeWidth={2} dot={{ r: 4 }} />
-                    </LineChart>
+                      <Bar dataKey="tickets" radius={[0, 4, 4, 0]}>
+                        {datos.map((_, i) => (
+                          <Cell key={i} fill={COLORES[i % COLORES.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Ranking vendedoras — barras horizontales */}
-                {ranking.length > 0 && (
-                  <div className="bg-white rounded-xl shadow p-5">
-                    <h3 className="font-bold text-gray-800 mb-4">🏆 Ventas por vendedora</h3>
-                    <ResponsiveContainer width="100%" height={ranking.length * 55 + 20}>
-                      <BarChart
-                        data={ranking}
-                        layout="vertical"
-                        margin={{ left: 10, right: 30 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                        <XAxis
-                          type="number"
-                          tick={{ fontSize: 11 }}
-                          tickFormatter={(v) => `$${Number(v).toLocaleString('es-AR')}`}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="nombre"
-                          tick={{ fontSize: 12, fontWeight: 600 }}
-                          width={90}
-                        />
-                        <Tooltip
-                          formatter={(value: any, name: any) => [
-                            `$${Number(value).toLocaleString('es-AR')}`,
-                            'Ventas'
-                          ]}
-                        />
-                        <Bar dataKey="ventas" fill="#d97706" radius={[0, 6, 6, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-
-                    {/* Detalle tickets debajo */}
-                    <div className="mt-4 space-y-2 border-t pt-4">
-                      {ranking.map((v, i) => (
-                        <div key={v.nombre} className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
-                            <span className="text-gray-700 font-medium">{v.nombre}</span>
-                          </div>
-                          <span className="text-gray-400">{v.tickets} tickets</span>
+                {/* Ranking */}
+                <div className="bg-white rounded-xl shadow p-5">
+                  <h3 className="font-bold text-gray-800 mb-4">🏆 Ranking vendedoras</h3>
+                  <div className="space-y-3">
+                    {datos.map((v, i) => (
+                      <div key={v.nombre} className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                          <span className="font-medium text-gray-800">{v.nombre}</span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="text-right">
+                          <p className="font-bold text-amber-700">${v.ventas.toLocaleString('es-AR')}</p>
+                          <p className="text-xs text-gray-500">{v.tickets} tickets</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </>
             )}
           </>
