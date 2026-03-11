@@ -45,29 +45,16 @@ export default function UsuariosPage() {
     setError('')
     setExito('')
 
-    // 1. Crear en Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
+    const res = await fetch('/api/crear-usuario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, password, rol }),
     })
 
-    if (authError || !authData.user) {
-      setError('Error al crear el usuario: ' + authError?.message)
-      setGuardando(false)
-      return
-    }
+    const data = await res.json()
 
-    // 2. Insertar en tabla usuarios
-    const { error: dbError } = await supabase.from('usuarios').insert({
-      id: authData.user.id,
-      nombre,
-      email,
-      rol,
-      activo: true,
-    })
-
-    if (dbError) {
-      setError('Error al guardar usuario: ' + dbError.message)
+    if (!res.ok) {
+      setError('Error: ' + data.error)
       setGuardando(false)
       return
     }
@@ -104,7 +91,6 @@ export default function UsuariosPage() {
 
   return (
     <div className="min-h-screen bg-amber-50">
-      {/* Header */}
       <header className="bg-amber-700 text-white px-6 py-4 flex justify-between items-center shadow">
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/dashboard')} className="text-amber-200 hover:text-white text-sm">
@@ -122,14 +108,12 @@ export default function UsuariosPage() {
 
       <main className="p-6 max-w-3xl mx-auto">
 
-        {/* Mensaje de éxito */}
         {exito && (
           <div className="bg-green-100 border border-green-300 text-green-700 rounded-lg px-4 py-3 mb-4">
             ✅ {exito}
           </div>
         )}
 
-        {/* Formulario nuevo usuario */}
         {mostrarForm && (
           <div className="bg-white rounded-xl shadow p-6 mb-6">
             <h2 className="font-bold text-gray-800 mb-4">Nuevo usuario</h2>
@@ -189,7 +173,6 @@ export default function UsuariosPage() {
           </div>
         )}
 
-        {/* Lista de usuarios */}
         {loading ? (
           <p className="text-center text-amber-800">Cargando...</p>
         ) : (
