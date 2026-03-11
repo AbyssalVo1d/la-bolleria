@@ -47,15 +47,9 @@ export default function NuevoPartePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    // Crear parte
     const { data: parte, error: parteError } = await supabase
       .from('partes_produccion')
-      .insert({
-        empleado_id: user.id,
-        fecha,
-        turno,
-        observaciones,
-      })
+      .insert({ empleado_id: user.id, fecha, turno, observaciones })
       .select()
       .single()
 
@@ -65,7 +59,6 @@ export default function NuevoPartePage() {
       return
     }
 
-    // Insertar detalle
     const detalle = itemsValidos.map(i => ({
       parte_id: parte.id,
       producto: i.producto,
@@ -103,7 +96,7 @@ export default function NuevoPartePage() {
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
               />
             </div>
             <div>
@@ -111,7 +104,7 @@ export default function NuevoPartePage() {
               <select
                 value={turno}
                 onChange={(e) => setTurno(e.target.value as 'mañana' | 'tarde')}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
               >
                 <option value="mañana">Mañana</option>
                 <option value="tarde">Tarde</option>
@@ -124,41 +117,43 @@ export default function NuevoPartePage() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Productos elaborados</label>
             <div className="space-y-3">
               {items.map((item, index) => (
-                <div key={index} className="flex gap-2 items-start">
+                <div key={index} className="bg-gray-50 rounded-lg p-3 space-y-2">
                   <input
                     type="text"
                     value={item.producto}
                     onChange={(e) => actualizarItem(index, 'producto', e.target.value)}
                     placeholder="Ej: Facturas"
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
                   />
-                  <input
-                    type="number"
-                    value={item.cantidad}
-                    onChange={(e) => actualizarItem(index, 'cantidad', e.target.value)}
-                    placeholder="Cant."
-                    min="0"
-                    className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
-                  />
-                  <select
-                    value={item.unidad}
-                    onChange={(e) => actualizarItem(index, 'unidad', e.target.value)}
-                    className="w-28 border border-gray-300 rounded-lg px-2 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
-                  >
-                    <option value="docena">Docena</option>
-                    <option value="unidad">Unidad</option>
-                    <option value="kg">Kg</option>
-                    <option value="bandeja">Bandeja</option>
-                    <option value="torta">Torta</option>
-                  </select>
-                  {items.length > 1 && (
-                    <button
-                      onClick={() => quitarItem(index)}
-                      className="text-red-400 hover:text-red-600 text-lg px-1"
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="number"
+                      value={item.cantidad}
+                      onChange={(e) => actualizarItem(index, 'cantidad', e.target.value)}
+                      placeholder="Cantidad"
+                      min="0"
+                      className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
+                    />
+                    <select
+                      value={item.unidad}
+                      onChange={(e) => actualizarItem(index, 'unidad', e.target.value)}
+                      className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
                     >
-                      ✕
-                    </button>
-                  )}
+                      <option value="docena">Docena</option>
+                      <option value="unidad">Unidad</option>
+                      <option value="kg">Kg</option>
+                      <option value="bandeja">Bandeja</option>
+                      <option value="torta">Torta</option>
+                    </select>
+                    {items.length > 1 && (
+                      <button
+                        onClick={() => quitarItem(index)}
+                        className="text-red-400 hover:text-red-600 text-lg px-1"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
