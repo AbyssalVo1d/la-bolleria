@@ -18,6 +18,10 @@ export default function UsuariosPage() {
   const [exito, setExito] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null)
+  const [cambiarPassId, setCambiarPassId] = useState<string | null>(null)
+  const [nuevaPassword, setNuevaPassword] = useState('')
+  const [mostrarNuevaPass, setMostrarNuevaPass] = useState(false)
+  const [guardandoPass, setGuardandoPass] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -95,6 +99,34 @@ export default function UsuariosPage() {
 
     setConfirmEliminar(null)
     cargarUsuarios()
+  }
+
+  const cambiarPassword = async (id: string) => {
+    if (!nuevaPassword || nuevaPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+    setGuardandoPass(true)
+    setError('')
+
+    const res = await fetch('/api/cambiar-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password: nuevaPassword }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      setError('Error: ' + data.error)
+      setGuardandoPass(false)
+      return
+    }
+
+    setExito('Contraseña actualizada correctamente')
+    setCambiarPassId(null)
+    setNuevaPassword('')
+    setGuardandoPass(false)
   }
 
   const rolColor = (rol: string) => {
@@ -213,7 +245,7 @@ export default function UsuariosPage() {
             {usuarios.map((u) => (
               <div key={u.id}>
                 <div className={`bg-white rounded-xl shadow p-4 ${!u.activo ? 'opacity-50' : ''}`}>
-                  
+
                   {/* Info del usuario */}
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -242,14 +274,71 @@ export default function UsuariosPage() {
                         {u.activo ? 'Desactivar' : 'Activar'}
                       </button>
                       <button
-                        onClick={() => setConfirmEliminar(u.id)}
-                        className="px-4 text-sm font-medium py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition"
+                        onClick={() => {
+                          setCambiarPassId(cambiarPassId === u.id ? null : u.id)
+                          setNuevaPassword('')
+                          setConfirmEliminar(null)
+                        }}
+                        className={`px-3 text-sm font-medium py-1.5 rounded-lg transition ${
+                          cambiarPassId === u.id
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                        }`}
                       >
-                        🗑️ Eliminar
+                        🔑
+                      </button>
+                      <button
+                        onClick={() => {
+                          setConfirmEliminar(u.id)
+                          setCambiarPassId(null)
+                        }}
+                        className="px-3 text-sm font-medium py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition"
+                      >
+                        🗑️
                       </button>
                     </div>
                   )}
                 </div>
+
+                {/* Cambiar contraseña */}
+                {cambiarPassId === u.id && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4 mt-1">
+                    <p className="text-sm text-amber-700 font-medium mb-3">
+                      Nueva contraseña para <strong>{u.nombre}</strong>
+                    </p>
+                    <div className="relative mb-3">
+                      <input
+                        type={mostrarNuevaPass ? 'text' : 'password'}
+                        value={nuevaPassword}
+                        onChange={(e) => setNuevaPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 pr-12 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarNuevaPass(!mostrarNuevaPass)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
+                      >
+                        {mostrarNuevaPass ? '🙈' : '👁️'}
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => cambiarPassword(u.id)}
+                        disabled={guardandoPass}
+                        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-2 rounded-lg transition disabled:opacity-50"
+                      >
+                        {guardandoPass ? 'Guardando...' : 'Guardar'}
+                      </button>
+                      <button
+                        onClick={() => { setCambiarPassId(null); setNuevaPassword('') }}
+                        className="flex-1 bg-white border border-gray-300 text-gray-600 text-sm py-2 rounded-lg hover:bg-gray-50 transition"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Confirmación eliminar */}
                 {confirmEliminar === u.id && (
@@ -273,6 +362,7 @@ export default function UsuariosPage() {
                     </div>
                   </div>
                 )}
+
               </div>
             ))}
           </div>
