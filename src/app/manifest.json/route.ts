@@ -1,0 +1,25 @@
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+  return NextResponse.json({
+    name: "La Bolleria",
+    short_name: "La Bolleria",
+    description: "Sistema de gestion",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#fffbeb",
+    theme_color: "#b45309",
+    icons: [
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png"
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png"
+      }
+    ]
+  })
+}
