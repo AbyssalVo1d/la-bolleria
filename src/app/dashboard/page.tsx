@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, LineChart, Line
 } from 'recharts'
 
 export default function DashboardPage() {
@@ -51,7 +51,6 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  // Agrupar por fecha
   const datosGrafico = () => {
     const mapa: Record<string, { fecha: string, ventas: number, tickets: number }> = {}
     cierres.forEach(c => {
@@ -62,7 +61,6 @@ export default function DashboardPage() {
     return Object.values(mapa)
   }
 
-  // Ranking vendedoras
   const rankingVendedoras = () => {
     const mapa: Record<string, { nombre: string, ventas: number, tickets: number }> = {}
     cierres.forEach(c => {
@@ -92,7 +90,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-amber-50">
-      {/* Header */}
       <header className="bg-amber-700 text-white px-6 py-4 flex justify-between items-center shadow">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🎂</span>
@@ -185,9 +182,9 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {/* Gráfico ventas en $ */}
+                {/* Gráfico ventas por fecha */}
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas en $</h3>
+                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por día</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={datos}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -199,10 +196,10 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Gráfico tickets */}
+                {/* Gráfico tickets por fecha */}
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets emitidos</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por día</h3>
+                  <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={datos}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
@@ -213,24 +210,52 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* Ranking vendedoras */}
-                <div className="bg-white rounded-xl shadow p-5">
-                  <h3 className="font-bold text-gray-800 mb-4">🏆 Ranking vendedoras</h3>
-                  <div className="space-y-3">
-                    {ranking.map((v, i) => (
-                      <div key={v.nombre} className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
-                          <span className="font-medium text-gray-800">{v.nombre}</span>
+                {/* Ranking vendedoras — barras horizontales */}
+                {ranking.length > 0 && (
+                  <div className="bg-white rounded-xl shadow p-5">
+                    <h3 className="font-bold text-gray-800 mb-4">🏆 Ventas por vendedora</h3>
+                    <ResponsiveContainer width="100%" height={ranking.length * 55 + 20}>
+                      <BarChart
+                        data={ranking}
+                        layout="vertical"
+                        margin={{ left: 10, right: 30 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 11 }}
+                          tickFormatter={(v) => `$${Number(v).toLocaleString('es-AR')}`}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="nombre"
+                          tick={{ fontSize: 12, fontWeight: 600 }}
+                          width={90}
+                        />
+                        <Tooltip
+                          formatter={(value: any, name: any) => [
+                            `$${Number(value).toLocaleString('es-AR')}`,
+                            'Ventas'
+                          ]}
+                        />
+                        <Bar dataKey="ventas" fill="#d97706" radius={[0, 6, 6, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+
+                    {/* Detalle tickets debajo */}
+                    <div className="mt-4 space-y-2 border-t pt-4">
+                      {ranking.map((v, i) => (
+                        <div key={v.nombre} className="flex justify-between items-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
+                            <span className="text-gray-700 font-medium">{v.nombre}</span>
+                          </div>
+                          <span className="text-gray-400">{v.tickets} tickets</span>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-amber-700">${v.ventas.toLocaleString('es-AR')}</p>
-                          <p className="text-xs text-gray-500">{v.tickets} tickets</p>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </>
