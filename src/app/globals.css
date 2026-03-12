@@ -24,10 +24,3 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-
-svg:focus,
-svg:focus-visible,
-div:focus,
-div:focus-visible {
-  outline: none !important;
-}
