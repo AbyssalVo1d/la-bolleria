@@ -281,7 +281,7 @@ export default function DashboardPage() {
                         axisLine={false}
                         tickLine={false}
                       />
-                      <Tooltip content={<TooltipVentas />} cursor={{ fill: 'transparent' }} />
+                      <Tooltip content={<TooltipVentas />} cursor={false} />
                       <Bar dataKey="ventas" radius={[0, 6, 6, 0]} activeBar={false}>
                         {datos.map((_, i) => (
                           <Cell key={i} fill={COLORES[i % COLORES.length]} />
@@ -317,7 +317,7 @@ export default function DashboardPage() {
                         axisLine={false}
                         tickLine={false}
                       />
-                      <Tooltip content={<TooltipTickets />} cursor={{ fill: 'transparent' }} />
+                      <Tooltip content={<TooltipTickets />} cursor={false} />
                       <Bar dataKey="tickets" radius={[0, 6, 6, 0]} activeBar={false}>
                         {datos.map((_, i) => (
                           <Cell key={i} fill={COLORES[i % COLORES.length]} />
