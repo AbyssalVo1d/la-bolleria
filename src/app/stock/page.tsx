@@ -145,7 +145,7 @@ export default function StockPage() {
             📦 Inventario
           </button>
           <button
-            onClick={() => setVista('historial')}
+            onClick={() => { setVista('historial') }}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
               vista === 'historial'
                 ? 'border-amber-600 text-amber-700'
@@ -154,6 +154,7 @@ export default function StockPage() {
           >
             📋 Historial
           </button>
+          {(usuario?.rol === 'admin' || usuario?.rol === 'produccion') && (
           <button
             onClick={() => { setVista('nuevo-insumo'); setError(''); setExito('') }}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
@@ -164,6 +165,7 @@ export default function StockPage() {
           >
             ➕ Nuevo producto
           </button>
+          )}
         </div>
       </div>
 

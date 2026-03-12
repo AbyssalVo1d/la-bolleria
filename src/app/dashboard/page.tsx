@@ -214,7 +214,7 @@ export default function DashboardPage() {
 
         {/* Módulos */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {(usuario.rol === 'admin' || usuario.rol === 'produccion') && (
+          {(usuario.rol === 'admin' || usuario.rol === 'produccion' || usuario.rol === 'ventas') && (
             <div onClick={() => router.push('/stock')}
               className="bg-white rounded-xl shadow p-4 cursor-pointer hover:shadow-md transition border-l-4 border-amber-500">
               <div className="text-2xl mb-1">📦</div>

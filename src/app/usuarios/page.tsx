@@ -22,6 +22,9 @@ export default function UsuariosPage() {
   const [nuevaPassword, setNuevaPassword] = useState('')
   const [mostrarNuevaPass, setMostrarNuevaPass] = useState(false)
   const [guardandoPass, setGuardandoPass] = useState(false)
+  const [cambiarRolId, setCambiarRolId] = useState<string | null>(null)
+  const [nuevoRol, setNuevoRol] = useState<'produccion' | 'ventas' | 'admin'>('produccion')
+  const [guardandoRol, setGuardandoRol] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -127,6 +130,23 @@ export default function UsuariosPage() {
     setCambiarPassId(null)
     setNuevaPassword('')
     setGuardandoPass(false)
+  }
+
+  const cambiarRol = async (id: string) => {
+    setGuardandoRol(true)
+    setError('')
+    const { error: err } = await supabase
+      .from('usuarios')
+      .update({ rol: nuevoRol })
+      .eq('id', id)
+    if (err) {
+      setError('Error al cambiar rol: ' + err.message)
+    } else {
+      setExito('Rol actualizado correctamente')
+      setCambiarRolId(null)
+      cargarUsuarios()
+    }
+    setGuardandoRol(false)
   }
 
   const rolColor = (rol: string) => {
@@ -275,8 +295,25 @@ export default function UsuariosPage() {
                       </button>
                       <button
                         onClick={() => {
+                          setCambiarRolId(cambiarRolId === u.id ? null : u.id)
+                          setNuevoRol(u.rol as 'produccion' | 'ventas' | 'admin')
+                          setCambiarPassId(null)
+                          setConfirmEliminar(null)
+                        }}
+                        className={`px-3 text-sm font-medium py-1.5 rounded-lg transition ${
+                          cambiarRolId === u.id
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        }`}
+                        title="Cambiar rol"
+                      >
+                        🎭
+                      </button>
+                      <button
+                        onClick={() => {
                           setCambiarPassId(cambiarPassId === u.id ? null : u.id)
                           setNuevaPassword('')
+                          setCambiarRolId(null)
                           setConfirmEliminar(null)
                         }}
                         className={`px-3 text-sm font-medium py-1.5 rounded-lg transition ${
@@ -291,6 +328,7 @@ export default function UsuariosPage() {
                         onClick={() => {
                           setConfirmEliminar(u.id)
                           setCambiarPassId(null)
+                          setCambiarRolId(null)
                         }}
                         className="px-3 text-sm font-medium py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition"
                       >
@@ -299,6 +337,39 @@ export default function UsuariosPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Cambiar rol */}
+                {cambiarRolId === u.id && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-4 mt-1">
+                    <p className="text-sm text-purple-700 font-medium mb-3">
+                      Cambiar rol de <strong>{u.nombre}</strong>
+                    </p>
+                    <select
+                      value={nuevoRol}
+                      onChange={(e) => setNuevoRol(e.target.value as 'produccion' | 'ventas' | 'admin')}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 mb-3"
+                    >
+                      <option value="produccion">Producción</option>
+                      <option value="ventas">Ventas</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => cambiarRol(u.id)}
+                        disabled={guardandoRol || nuevoRol === u.rol}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold py-2 rounded-lg transition disabled:opacity-50"
+                      >
+                        {guardandoRol ? 'Guardando...' : 'Guardar rol'}
+                      </button>
+                      <button
+                        onClick={() => setCambiarRolId(null)}
+                        className="flex-1 bg-white border border-gray-300 text-gray-600 text-sm py-2 rounded-lg hover:bg-gray-50 transition"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Cambiar contraseña */}
                 {cambiarPassId === u.id && (
