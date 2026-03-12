@@ -53,46 +53,74 @@ function GraficoBarras({
   datos,
   dataKey,
   formatear,
+  formatearEscala,
 }: {
   datos: DatoVendedora[]
   dataKey: 'ventas' | 'tickets'
   formatear: (v: number) => string
+  formatearEscala: (v: number) => string
 }) {
   const [tooltip, setTooltip] = useState<{ nombre: string, valor: string } | null>(null)
   const maximo = Math.max(...datos.map(d => d[dataKey]))
 
+  // Generar 5 puntos de escala
+  const pasos = 4
+  const escala = Array.from({ length: pasos + 1 }, (_, i) =>
+    Math.round((maximo / pasos) * i)
+  )
+
   return (
     <div className="relative">
-      <div className="space-y-4">
-        {datos.map((d, i) => {
-          const porcentaje = maximo > 0 ? (d[dataKey] / maximo) * 100 : 0
-          return (
-            <div key={d.nombre} className="flex items-center gap-3">
-              <div className="w-24 text-right text-xs font-semibold text-gray-700 shrink-0">
-                {d.nombre}
+      {/* Área del gráfico */}
+      <div className="relative pl-28 pr-4">
+        {/* Líneas guía verticales */}
+        <div className="absolute inset-y-0 left-28 right-4 flex justify-between pointer-events-none">
+          {escala.map((_, i) => (
+            <div key={i} className="w-px bg-gray-100 h-full" />
+          ))}
+        </div>
+
+        {/* Barras */}
+        <div className="space-y-3 relative">
+          {datos.map((d, i) => {
+            const porcentaje = maximo > 0 ? (d[dataKey] / maximo) * 100 : 0
+            return (
+              <div key={d.nombre} className="relative">
+                {/* Nombre a la izquierda */}
+                <div className="absolute right-full pr-3 top-1/2 -translate-y-1/2 w-28 text-right text-xs font-semibold text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                  {d.nombre}
+                </div>
+                {/* Barra */}
+                <div className="h-7 bg-gray-50 rounded-lg overflow-hidden">
+                  <div
+                    className="h-full rounded-lg cursor-pointer transition-opacity hover:opacity-85"
+                    style={{
+                      width: `${porcentaje}%`,
+                      backgroundColor: COLORES[i % COLORES.length],
+                      minWidth: porcentaje > 0 ? '8px' : '0',
+                    }}
+                    onMouseEnter={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                    onMouseLeave={() => setTooltip(null)}
+                    onTouchStart={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                    onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
+                  />
+                </div>
               </div>
-              <div className="flex-1 relative h-10">
-                <div
-                  className="h-full rounded-r-lg cursor-pointer transition-opacity hover:opacity-90"
-                  style={{
-                    width: `${porcentaje}%`,
-                    backgroundColor: COLORES[i % COLORES.length],
-                    minWidth: porcentaje > 0 ? '8px' : '0',
-                  }}
-                  onMouseEnter={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
-                  onMouseLeave={() => setTooltip(null)}
-                  onTouchStart={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
-                  onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
-                />
-              </div>
-              <div className="w-24 text-xs font-bold text-amber-700 shrink-0">
-                {formatear(d[dataKey])}
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+
+        {/* Escala abajo */}
+        <div className="flex justify-between mt-2">
+          {escala.map((v, i) => (
+            <span key={i} className="text-xs text-gray-400">
+              {formatearEscala(v)}
+            </span>
+          ))}
+        </div>
       </div>
 
+      {/* Tooltip */}
       {tooltip && (
         <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm z-10 pointer-events-none">
           <p className="font-semibold text-gray-800 mb-1">{tooltip.nombre}</p>
@@ -287,6 +315,7 @@ export default function DashboardPage() {
                     datos={datos}
                     dataKey="ventas"
                     formatear={(v) => `$${v.toLocaleString('es-AR')}`}
+                    formatearEscala={(v) => v === 0 ? '$0' : `$${Math.round(v / 1000)}k`}
                   />
                 </div>
 
@@ -297,6 +326,7 @@ export default function DashboardPage() {
                     datos={datos}
                     dataKey="tickets"
                     formatear={(v) => `${v} tickets`}
+                    formatearEscala={(v) => `${v}`}
                   />
                 </div>
 
