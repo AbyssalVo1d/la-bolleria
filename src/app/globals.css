@@ -26,6 +26,8 @@ body {
 }
 
 svg:focus,
-svg:focus-visible {
+svg:focus-visible,
+div:focus,
+div:focus-visible {
   outline: none !important;
 }
