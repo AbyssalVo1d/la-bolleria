@@ -75,6 +75,23 @@ const TooltipTickets = ({ active, payload, label }: any) => {
   return null
 }
 
+// Barra personalizada que nunca muestra el estado inactivo
+const BarraPersonalizada = (props: any) => {
+  const { x, y, width, height, fill } = props
+  if (!width || !height) return null
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill={fill}
+      rx={6}
+      ry={6}
+    />
+  )
+}
+
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [cierres, setCierres] = useState<any[]>([])
@@ -282,7 +299,7 @@ export default function DashboardPage() {
                         tickLine={false}
                       />
                       <Tooltip content={<TooltipVentas />} cursor={false} />
-                      <Bar dataKey="ventas" radius={[0, 6, 6, 0]} activeBar={false}>
+                      <Bar dataKey="ventas" shape={<BarraPersonalizada />} activeBar={false}>
                         {datos.map((_, i) => (
                           <Cell key={i} fill={COLORES[i % COLORES.length]} />
                         ))}
@@ -318,7 +335,7 @@ export default function DashboardPage() {
                         tickLine={false}
                       />
                       <Tooltip content={<TooltipTickets />} cursor={false} />
-                      <Bar dataKey="tickets" radius={[0, 6, 6, 0]} activeBar={false}>
+                      <Bar dataKey="tickets" shape={<BarraPersonalizada />} activeBar={false}>
                         {datos.map((_, i) => (
                           <Cell key={i} fill={COLORES[i % COLORES.length]} />
                         ))}
