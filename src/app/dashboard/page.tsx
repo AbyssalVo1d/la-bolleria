@@ -4,10 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Cell
-} from 'recharts'
 
 const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
 
@@ -51,44 +47,59 @@ function obtenerRango(filtro: Filtro, offset: number): { desde: Date, hasta: Dat
   return { desde, hasta, label }
 }
 
-const TooltipVentas = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm">
-        <p className="font-semibold text-gray-800 mb-1">{label}</p>
-        <p className="text-amber-700 font-bold">${Number(payload[0].value).toLocaleString('es-AR')}</p>
-      </div>
-    )
-  }
-  return null
-}
+type DatoVendedora = { nombre: string, ventas: number, tickets: number }
 
-const TooltipTickets = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm">
-        <p className="font-semibold text-gray-800 mb-1">{label}</p>
-        <p className="text-amber-700 font-bold">{payload[0].value} tickets</p>
-      </div>
-    )
-  }
-  return null
-}
+function GraficoBarras({
+  datos,
+  dataKey,
+  formatear,
+}: {
+  datos: DatoVendedora[]
+  dataKey: 'ventas' | 'tickets'
+  formatear: (v: number) => string
+}) {
+  const [tooltip, setTooltip] = useState<{ nombre: string, valor: string } | null>(null)
+  const maximo = Math.max(...datos.map(d => d[dataKey]))
 
-// Barra personalizada que nunca muestra el estado inactivo
-const BarraPersonalizada = (props: any) => {
-  const { x, y, width, height, fill } = props
-  if (!width || !height) return null
   return (
-    <rect
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      fill={fill}
-      rx={6}
-      ry={6}
-    />
+    <div className="relative">
+      <div className="space-y-4">
+        {datos.map((d, i) => {
+          const porcentaje = maximo > 0 ? (d[dataKey] / maximo) * 100 : 0
+          return (
+            <div key={d.nombre} className="flex items-center gap-3">
+              <div className="w-24 text-right text-xs font-semibold text-gray-700 shrink-0">
+                {d.nombre}
+              </div>
+              <div className="flex-1 relative h-10">
+                <div
+                  className="h-full rounded-r-lg cursor-pointer transition-opacity hover:opacity-90"
+                  style={{
+                    width: `${porcentaje}%`,
+                    backgroundColor: COLORES[i % COLORES.length],
+                    minWidth: porcentaje > 0 ? '8px' : '0',
+                  }}
+                  onMouseEnter={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                  onMouseLeave={() => setTooltip(null)}
+                  onTouchStart={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                  onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
+                />
+              </div>
+              <div className="w-24 text-xs font-bold text-amber-700 shrink-0">
+                {formatear(d[dataKey])}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {tooltip && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm z-10 pointer-events-none">
+          <p className="font-semibold text-gray-800 mb-1">{tooltip.nombre}</p>
+          <p className="text-amber-700 font-bold">{tooltip.valor}</p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -114,22 +125,20 @@ export default function DashboardPage() {
   const cargarDatos = async () => {
     setLoading(true)
     const { desde, hasta } = obtenerRango(filtro, offset)
-
     const { data } = await supabase
       .from('cierres_turno')
       .select('*, usuarios(nombre)')
       .gte('fecha', desde.toISOString().split('T')[0])
       .lte('fecha', hasta.toISOString().split('T')[0])
       .order('fecha', { ascending: true })
-
     setCierres(data || [])
     setLoading(false)
   }
 
   const rango = obtenerRango(filtro, offset)
 
-  const ventasPorVendedora = () => {
-    const mapa: Record<string, { nombre: string, ventas: number, tickets: number }> = {}
+  const ventasPorVendedora = (): DatoVendedora[] => {
+    const mapa: Record<string, DatoVendedora> = {}
     cierres.forEach(c => {
       const nombre = c.usuarios?.nombre || 'Sin nombre'
       if (!mapa[nombre]) mapa[nombre] = { nombre, ventas: 0, tickets: 0 }
@@ -271,77 +280,24 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {/* Gráfico ventas por vendedora */}
+                {/* Gráfico ventas */}
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora</h3>
-                  <ResponsiveContainer width="100%" height={250} style={{ outline: 'none' }}>
-                    <BarChart
-                      data={datos}
-                      layout="vertical"
-                      margin={{ left: 10, right: 30 }}
-                      style={{ outline: 'none' }}
-                      tabIndex={-1}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} vertical={false} />
-                      <XAxis
-                        type="number"
-                        tick={{ fontSize: 11, fill: '#6b7280' }}
-                        tickFormatter={(v) => `$${Number(v).toLocaleString('es-AR')}`}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="nombre"
-                        tick={{ fontSize: 12, fill: '#374151', fontWeight: 600 }}
-                        width={90}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip content={<TooltipVentas />} cursor={false} />
-                      <Bar dataKey="ventas" shape={<BarraPersonalizada />} activeBar={false}>
-                        {datos.map((_, i) => (
-                          <Cell key={i} fill={COLORES[i % COLORES.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <GraficoBarras
+                    datos={datos}
+                    dataKey="ventas"
+                    formatear={(v) => `$${v.toLocaleString('es-AR')}`}
+                  />
                 </div>
 
-                {/* Gráfico tickets por vendedora */}
+                {/* Gráfico tickets */}
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por vendedora</h3>
-                  <ResponsiveContainer width="100%" height={250} style={{ outline: 'none' }}>
-                    <BarChart
-                      data={datos}
-                      layout="vertical"
-                      margin={{ left: 10, right: 30 }}
-                      style={{ outline: 'none' }}
-                      tabIndex={-1}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} vertical={false} />
-                      <XAxis
-                        type="number"
-                        tick={{ fontSize: 11, fill: '#6b7280' }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="nombre"
-                        tick={{ fontSize: 12, fill: '#374151', fontWeight: 600 }}
-                        width={90}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip content={<TooltipTickets />} cursor={false} />
-                      <Bar dataKey="tickets" shape={<BarraPersonalizada />} activeBar={false}>
-                        {datos.map((_, i) => (
-                          <Cell key={i} fill={COLORES[i % COLORES.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <GraficoBarras
+                    datos={datos}
+                    dataKey="tickets"
+                    formatear={(v) => `${v} tickets`}
+                  />
                 </div>
 
                 {/* Ranking */}
