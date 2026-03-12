@@ -258,7 +258,7 @@ export default function DashboardPage() {
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }}>
+                    <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }} style={{ outline: 'none' }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                       <XAxis
                         type="number"
@@ -289,7 +289,7 @@ export default function DashboardPage() {
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por vendedora</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }}>
+                    <BarChart data={datos} layout="vertical" margin={{ left: 10, right: 30 }} style={{ outline: 'none' }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                       <XAxis
                         type="number"
