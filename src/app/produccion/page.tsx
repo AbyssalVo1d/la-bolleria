@@ -42,7 +42,7 @@ export default function ProduccionPage() {
       .order('fecha', { ascending: false })
       .order('creado_en', { ascending: false })
 
-    if (rol !== 'admin') {
+    if (rol !== 'admin' && rol !== 'ventas') {
       query = query.eq('empleado_id', userId)
     } else if (empId) {
       query = query.eq('empleado_id', empId)
@@ -106,18 +106,9 @@ export default function ProduccionPage() {
               <div key={parte.id} className="bg-white rounded-xl shadow p-5">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <p className="font-bold text-gray-800">
-                      {parte.fecha} — {parte.turno.charAt(0).toUpperCase() + parte.turno.slice(1)}
-                    </p>
-                    {usuario?.rol === 'admin' && (
-                      <p className="text-sm text-gray-500">{(parte as any).usuarios?.nombre}</p>
-                    )}
+                    <p className="font-bold text-gray-800">{parte.fecha}</p>
+                    <p className="text-sm text-gray-500">{(parte as any).usuarios?.nombre}</p>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    parte.turno === 'mañana' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
-                  }`}>
-                    {parte.turno}
-                  </span>
                 </div>
 
                 {/* Detalle */}
@@ -126,7 +117,7 @@ export default function ProduccionPage() {
                     {parte.detalle_parte.map((d: any) => (
                       <div key={d.id} className="flex justify-between text-sm">
                         <span className="text-gray-700">{d.producto}</span>
-                        <span className="font-medium text-gray-800">{d.cantidad} {d.unidad}</span>
+                        <span className="font-medium text-gray-800">{d.cantidad}</span>
                       </div>
                     ))}
                   </div>

@@ -69,12 +69,20 @@ export default function VentasPage() {
           </button>
           <span className="text-xl font-bold">💰 Ventas</span>
         </div>
-        <button
-          onClick={() => router.push('/ventas/nuevo-cierre')}
-          className="bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-blue-50 transition"
-        >
-          + Nuevo cierre
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/ventas/nueva-venta')}
+            className="bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-blue-50 transition"
+          >
+            + Nueva venta
+          </button>
+          <button
+            onClick={() => router.push('/ventas/nuevo-cierre')}
+            className="bg-blue-800 hover:bg-blue-900 text-white font-semibold px-4 py-2 rounded-lg text-sm transition"
+          >
+            + Cierre
+          </button>
+        </div>
       </header>
 
       <main className="p-6 max-w-3xl mx-auto">

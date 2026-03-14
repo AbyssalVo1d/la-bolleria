@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Insumo, MovimientoStock, Usuario } from '@/types'
 
-type Vista = 'stock' | 'historial' | 'nuevo-insumo'
+type Vista = 'stock' | 'historial' | 'nuevo-insumo' | 'editar-insumo'
 
 export default function StockPage() {
   const [insumos, setInsumos] = useState<Insumo[]>([])
@@ -22,6 +22,12 @@ export default function StockPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
+
+  const [insumoEditando, setInsumoEditando] = useState<Insumo | null>(null)
+  const [nombreEdit, setNombreEdit] = useState('')
+  const [unidadEdit, setUnidadEdit] = useState<Insumo['unidad']>('kg')
+  const [stockMinimoEdit, setStockMinimoEdit] = useState('')
+  const [guardandoEdit, setGuardandoEdit] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -91,6 +97,43 @@ export default function StockPage() {
     setStockMinimo('')
     setUnidad('kg')
     setGuardando(false)
+    await cargarInsumos()
+  }
+
+  const abrirEditar = (insumo: Insumo) => {
+    setInsumoEditando(insumo)
+    setNombreEdit(insumo.nombre)
+    setUnidadEdit(insumo.unidad)
+    setStockMinimoEdit(String(insumo.stock_minimo))
+    setError('')
+    setExito('')
+    setVista('editar-insumo')
+  }
+
+  const guardarEdicion = async () => {
+    if (!nombreEdit || !stockMinimoEdit) {
+      setError('Completá nombre y stock mínimo')
+      return
+    }
+    setGuardandoEdit(true)
+    setError('')
+
+    const { error: err } = await supabase.from('insumos').update({
+      nombre: nombreEdit.trim(),
+      unidad: unidadEdit,
+      stock_minimo: parseFloat(stockMinimoEdit),
+    }).eq('id', insumoEditando!.id)
+
+    if (err) {
+      setError('Error al guardar: ' + err.message)
+      setGuardandoEdit(false)
+      return
+    }
+
+    setExito(`Insumo actualizado correctamente`)
+    setGuardandoEdit(false)
+    setInsumoEditando(null)
+    setVista('stock')
     await cargarInsumos()
   }
 
@@ -226,15 +269,26 @@ export default function StockPage() {
                           <p className="font-semibold text-gray-800">{insumo.nombre}</p>
                           <p className="text-sm text-gray-500">Mínimo: {insumo.stock_minimo} {insumo.unidad}</p>
                         </div>
-                        <div className="text-right">
-                          <p className={`text-xl font-bold ${
-                            estado === 'critico' ? 'text-red-600' :
-                            estado === 'bajo' ? 'text-yellow-600' :
-                            'text-green-600'
-                          }`}>
-                            {insumo.stock_actual}
-                          </p>
-                          <p className="text-sm text-gray-500">{insumo.unidad}</p>
+                        <div className="flex items-start gap-2">
+                          <div className="text-right">
+                            <p className={`text-xl font-bold ${
+                              estado === 'critico' ? 'text-red-600' :
+                              estado === 'bajo' ? 'text-yellow-600' :
+                              'text-green-600'
+                            }`}>
+                              {insumo.stock_actual}
+                            </p>
+                            <p className="text-sm text-gray-500">{insumo.unidad}</p>
+                          </div>
+                          {(usuario?.rol === 'admin' || usuario?.rol === 'produccion') && (
+                            <button
+                              onClick={() => abrirEditar(insumo)}
+                              className="text-gray-400 hover:text-amber-600 transition text-lg leading-none mt-0.5"
+                              title="Editar insumo"
+                            >
+                              ✏️
+                            </button>
+                          )}
                         </div>
                       </div>
                       {estado === 'critico' && (
@@ -287,6 +341,9 @@ export default function StockPage() {
                               {m.motivo.replace(/_/g, ' ')}
                               {m.detalle ? ` — ${m.detalle}` : ''}
                             </p>
+                            {(m as any).entregado_a && (
+                              <p className="text-xs text-gray-400">📦 Entregado a: {(m as any).entregado_a}</p>
+                            )}
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs text-gray-400">👤 {usuarioMov?.nombre || 'Desconocido'}</span>
                               <span className="text-xs text-gray-300">•</span>
@@ -367,7 +424,15 @@ export default function StockPage() {
                     step="0.01"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
-                  <p className="text-xs text-gray-400 mt-1">Se alertará cuando baje de este valor</p>
+                  <div className="flex gap-2 mt-1">
+                    <span className="text-xs text-gray-400">Sugerencias:</span>
+                    {[3, 5].map(v => (
+                      <button key={v} type="button" onClick={() => setStockMinimo(String(v))}
+                        className="text-xs text-amber-600 hover:text-amber-800 font-medium underline">
+                        {v}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -384,6 +449,89 @@ export default function StockPage() {
               >
                 {guardando ? 'Creando...' : 'Crear insumo'}
               </button>
+            </div>
+          </>
+        )}
+
+        {/* VISTA: EDITAR INSUMO */}
+        {vista === 'editar-insumo' && insumoEditando && (
+          <>
+            <h2 className="font-bold text-gray-800 text-lg mb-4">Editar insumo</h2>
+
+            <div className="bg-white rounded-xl shadow p-6 space-y-4 max-w-lg">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre del insumo/producto *
+                </label>
+                <input
+                  type="text"
+                  value={nombreEdit}
+                  onChange={(e) => setNombreEdit(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unidad de medida *
+                  </label>
+                  <select
+                    value={unidadEdit}
+                    onChange={(e) => setUnidadEdit(e.target.value as Insumo['unidad'])}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    <option value="kg">Kilogramos (kg)</option>
+                    <option value="g">Gramos (g)</option>
+                    <option value="lt">Litros (lt)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="unidad">Unidad</option>
+                    <option value="docena">Docena</option>
+                    <option value="atado">Atado</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Stock mínimo *
+                  </label>
+                  <input
+                    type="number"
+                    value={stockMinimoEdit}
+                    onChange={(e) => setStockMinimoEdit(e.target.value)}
+                    min="0"
+                    step="0.01"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <div className="flex gap-2 mt-1">
+                    <span className="text-xs text-gray-400">Sugerencias:</span>
+                    {[3, 5].map(v => (
+                      <button key={v} type="button" onClick={() => setStockMinimoEdit(String(v))}
+                        className="text-xs text-amber-600 hover:text-amber-800 font-medium underline">
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={guardarEdicion}
+                  disabled={guardandoEdit || !nombreEdit || !stockMinimoEdit}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-50"
+                >
+                  {guardandoEdit ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+                <button
+                  onClick={() => { setVista('stock'); setInsumoEditando(null) }}
+                  className="flex-1 bg-white border border-gray-300 text-gray-600 py-2 rounded-lg hover:bg-gray-50 transition"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </>
         )}

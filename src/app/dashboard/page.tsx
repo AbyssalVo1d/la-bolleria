@@ -7,15 +7,23 @@ import { Usuario } from '@/types'
 
 const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
 
-type Filtro = 'semana' | 'mes' | 'trimestre' | 'anio'
+type Filtro = 'dia' | 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
 
-function obtenerRango(filtro: Filtro, offset: number): { desde: Date, hasta: Date, label: string } {
+function obtenerRango(filtro: Filtro, offset: number, desdeCustom: string, hastaCustom: string): { desde: Date, hasta: Date, label: string } {
   const hoy = new Date()
   let desde = new Date()
   let hasta = new Date()
   let label = ''
 
-  if (filtro === 'semana') {
+  if (filtro === 'dia') {
+    desde = new Date(hoy)
+    desde.setDate(hoy.getDate() + offset)
+    desde.setHours(0, 0, 0, 0)
+    hasta = new Date(desde)
+    hasta.setHours(23, 59, 59, 999)
+    label = desde.toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+    label = label.charAt(0).toUpperCase() + label.slice(1)
+  } else if (filtro === 'semana') {
     const dia = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1
     desde = new Date(hoy)
     desde.setDate(hoy.getDate() - dia + offset * 7)
@@ -37,17 +45,23 @@ function obtenerRango(filtro: Filtro, offset: number): { desde: Date, hasta: Dat
     desde = new Date(anio, trimNorm * 3, 1)
     hasta = new Date(anio, trimNorm * 3 + 3, 0, 23, 59, 59)
     label = `T${trimNorm + 1} ${anio}`
-  } else {
+  } else if (filtro === 'anio') {
     const anio = hoy.getFullYear() + offset
     desde = new Date(anio, 0, 1)
     hasta = new Date(anio, 11, 31, 23, 59, 59)
     label = `${anio}`
+  } else {
+    // personalizado
+    desde = desdeCustom ? new Date(desdeCustom + 'T00:00:00') : new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+    hasta = hastaCustom ? new Date(hastaCustom + 'T23:59:59') : new Date()
+    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }
+    label = `${desde.toLocaleDateString('es-AR', opts)} — ${hasta.toLocaleDateString('es-AR', opts)}`
   }
 
   return { desde, hasta, label }
 }
 
-type DatoVendedora = { nombre: string, ventas: number, tickets: number }
+type DatoVendedora = { nombre: string, ventas: number, tickets: number, atenciones: number }
 
 function GraficoBarras({
   datos,
@@ -56,14 +70,13 @@ function GraficoBarras({
   formatearEscala,
 }: {
   datos: DatoVendedora[]
-  dataKey: 'ventas' | 'tickets'
+  dataKey: 'ventas' | 'tickets' | 'atenciones'
   formatear: (v: number) => string
   formatearEscala: (v: number) => string
 }) {
   const [tooltip, setTooltip] = useState<{ nombre: string, valor: string } | null>(null)
   const maximo = Math.max(...datos.map(d => d[dataKey]))
 
-  // Solo 3 puntos en escala para que no se superpongan en celular
   const pasos = 2
   const escala = Array.from({ length: pasos + 1 }, (_, i) =>
     Math.round((maximo / pasos) * i)
@@ -72,16 +85,13 @@ function GraficoBarras({
   return (
     <div className="relative">
       <div className="relative">
-        {/* Barras */}
         <div className="space-y-3">
           {datos.map((d, i) => {
             const porcentaje = maximo > 0 ? (d[dataKey] / maximo) * 100 : 0
             return (
               <div key={d.nombre} className="flex flex-col gap-0.5">
-                {/* Nombre arriba de la barra en celular */}
                 <span className="text-xs font-semibold text-gray-700">{d.nombre}</span>
                 <div className="flex items-center gap-2">
-                  {/* Barra */}
                   <div className="flex-1 h-6 bg-gray-50 rounded-lg overflow-hidden">
                     <div
                       className="h-full rounded-lg cursor-pointer transition-opacity hover:opacity-85"
@@ -96,7 +106,6 @@ function GraficoBarras({
                       onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
                     />
                   </div>
-                  {/* Valor a la derecha */}
                   <span className="text-xs font-bold text-amber-700 shrink-0 w-28 text-right">
                     {formatear(d[dataKey])}
                   </span>
@@ -106,7 +115,6 @@ function GraficoBarras({
           })}
         </div>
 
-        {/* Escala abajo con solo 3 valores */}
         <div className="flex justify-between mt-3 pr-32">
           {escala.map((v, i) => (
             <span key={i} className="text-xs text-gray-400">
@@ -116,7 +124,6 @@ function GraficoBarras({
         </div>
       </div>
 
-      {/* Tooltip */}
       {tooltip && (
         <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm z-10 pointer-events-none">
           <p className="font-semibold text-gray-800 mb-1">{tooltip.nombre}</p>
@@ -129,15 +136,17 @@ function GraficoBarras({
 
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
-  const [cierres, setCierres] = useState<any[]>([])
+  const [ventas, setVentas] = useState<any[]>([])
   const [filtro, setFiltro] = useState<Filtro>('mes')
   const [offset, setOffset] = useState(0)
+  const [desdeCustom, setDesdeCustom] = useState('')
+  const [hastaCustom, setHastaCustom] = useState('')
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => { iniciar() }, [])
-  useEffect(() => { if (usuario) cargarDatos() }, [filtro, offset, usuario])
+  useEffect(() => { if (usuario) cargarDatos() }, [filtro, offset, desdeCustom, hastaCustom, usuario])
 
   const iniciar = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -148,33 +157,46 @@ export default function DashboardPage() {
 
   const cargarDatos = async () => {
     setLoading(true)
-    const { desde, hasta } = obtenerRango(filtro, offset)
+    const { desde, hasta } = obtenerRango(filtro, offset, desdeCustom, hastaCustom)
     const { data } = await supabase
-      .from('cierres_turno')
-      .select('*, usuarios(nombre)')
-      .gte('fecha', desde.toISOString().split('T')[0])
-      .lte('fecha', hasta.toISOString().split('T')[0])
-      .order('fecha', { ascending: true })
-    setCierres(data || [])
+      .from('ventas')
+      .select('*, cobrador:cobrado_por(nombre), atendedor:atendido_por(nombre)')
+      .gte('creado_en', desde.toISOString())
+      .lte('creado_en', hasta.toISOString())
+      .order('creado_en', { ascending: true })
+    setVentas(data || [])
     setLoading(false)
   }
 
-  const rango = obtenerRango(filtro, offset)
+  const rango = obtenerRango(filtro, offset, desdeCustom, hastaCustom)
 
-  const ventasPorVendedora = (): DatoVendedora[] => {
+  const datosCobrador = (): DatoVendedora[] => {
     const mapa: Record<string, DatoVendedora> = {}
-    cierres.forEach(c => {
-      const nombre = c.usuarios?.nombre || 'Sin nombre'
-      if (!mapa[nombre]) mapa[nombre] = { nombre, ventas: 0, tickets: 0 }
-      mapa[nombre].ventas += Number(c.total_ventas)
-      mapa[nombre].tickets += c.cantidad_tickets
+    ventas.forEach(v => {
+      const nombre = v.cobrador?.nombre || 'Sin nombre'
+      if (!mapa[nombre]) mapa[nombre] = { nombre, ventas: 0, tickets: 0, atenciones: 0 }
+      mapa[nombre].ventas += Number(v.monto)
+      mapa[nombre].tickets += 1
     })
     return Object.values(mapa).sort((a, b) => b.ventas - a.ventas)
   }
 
-  const datos = ventasPorVendedora()
-  const totalVentas = datos.reduce((s, d) => s + d.ventas, 0)
-  const totalTickets = datos.reduce((s, d) => s + d.tickets, 0)
+  const datosAtendedor = (): DatoVendedora[] => {
+    const mapa: Record<string, DatoVendedora> = {}
+    ventas.forEach(v => {
+      const nombre = v.atendedor?.nombre || 'Sin nombre'
+      if (!mapa[nombre]) mapa[nombre] = { nombre, ventas: 0, tickets: 0, atenciones: 0 }
+      mapa[nombre].atenciones += 1
+      mapa[nombre].ventas += Number(v.monto)
+      mapa[nombre].tickets += 1
+    })
+    return Object.values(mapa).sort((a, b) => b.atenciones - a.atenciones)
+  }
+
+  const datos = datosCobrador()
+  const datosAtencion = datosAtendedor()
+  const totalVentas = ventas.reduce((s, v) => s + Number(v.monto), 0)
+  const totalTickets = ventas.length
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -221,7 +243,7 @@ export default function DashboardPage() {
               <p className="font-bold text-sm text-gray-800">Stock</p>
             </div>
           )}
-          {(usuario.rol === 'admin' || usuario.rol === 'produccion') && (
+          {(usuario.rol === 'admin' || usuario.rol === 'produccion' || usuario.rol === 'ventas') && (
             <div onClick={() => router.push('/produccion')}
               className="bg-white rounded-xl shadow p-4 cursor-pointer hover:shadow-md transition border-l-4 border-green-500">
               <div className="text-2xl mb-1">🎂</div>
@@ -248,37 +270,68 @@ export default function DashboardPage() {
           <>
             {/* Selector de período */}
             <div className="bg-white rounded-xl shadow px-5 py-4 mb-6">
-              <div className="flex gap-2 mb-3">
-                {(['semana', 'mes', 'trimestre', 'anio'] as Filtro[]).map(f => (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {([
+                  { key: 'dia', label: 'Día' },
+                  { key: 'semana', label: 'Semana' },
+                  { key: 'mes', label: 'Mes' },
+                  { key: 'trimestre', label: 'Trimestre' },
+                  { key: 'anio', label: 'Año' },
+                  { key: 'personalizado', label: 'Personalizado' },
+                ] as { key: Filtro, label: string }[]).map(f => (
                   <button
-                    key={f}
-                    onClick={() => cambiarFiltro(f)}
+                    key={f.key}
+                    onClick={() => cambiarFiltro(f.key)}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-                      filtro === f ? 'bg-amber-600 text-white' : 'bg-amber-50 text-gray-600 hover:bg-amber-100'
+                      filtro === f.key ? 'bg-amber-600 text-white' : 'bg-amber-50 text-gray-600 hover:bg-amber-100'
                     }`}
                   >
-                    {f === 'semana' ? 'Semana' : f === 'mes' ? 'Mes' : f === 'trimestre' ? 'Trimestre' : 'Año'}
+                    {f.label}
                   </button>
                 ))}
               </div>
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setOffset(offset - 1)}
-                  className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition"
-                >
-                  ←
-                </button>
-                <span className="text-sm font-semibold text-amber-800 text-center">
-                  {rango.label}
-                </span>
-                <button
-                  onClick={() => setOffset(Math.min(offset + 1, 0))}
-                  disabled={offset === 0}
-                  className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition disabled:opacity-30"
-                >
-                  →
-                </button>
-              </div>
+
+              {filtro === 'personalizado' ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Desde</label>
+                    <input
+                      type="date"
+                      value={desdeCustom}
+                      onChange={(e) => setDesdeCustom(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-gray-600">Hasta</label>
+                    <input
+                      type="date"
+                      value={hastaCustom}
+                      onChange={(e) => setHastaCustom(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setOffset(offset - 1)}
+                    className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition"
+                  >
+                    ←
+                  </button>
+                  <span className="text-sm font-semibold text-amber-800 text-center">
+                    {rango.label}
+                  </span>
+                  <button
+                    onClick={() => setOffset(Math.min(offset + 1, 0))}
+                    disabled={offset === 0}
+                    className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition disabled:opacity-30"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* KPIs */}
@@ -290,14 +343,14 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow px-5 py-4 text-center">
-                <p className="text-sm text-gray-500 mb-1">Total tickets</p>
+                <p className="text-sm text-gray-500 mb-1">Total ventas</p>
                 <p className="text-2xl font-bold text-amber-700">{totalTickets}</p>
               </div>
             </div>
 
             {loading ? (
               <p className="text-center text-amber-800">Cargando gráficos...</p>
-            ) : datos.length === 0 ? (
+            ) : ventas.length === 0 ? (
               <div className="bg-white rounded-xl shadow p-8 text-center text-gray-500">
                 <p className="text-3xl mb-2">📊</p>
                 <p>No hay datos para <strong>{rango.label}</strong></p>
@@ -305,7 +358,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora</h3>
+                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora (cobrado por)</h3>
                   <GraficoBarras
                     datos={datos}
                     dataKey="ventas"
@@ -315,17 +368,17 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">🎫 Tickets por vendedora</h3>
+                  <h3 className="font-bold text-gray-800 mb-4">🙋 Ranking de atención al cliente</h3>
                   <GraficoBarras
-                    datos={datos}
-                    dataKey="tickets"
-                    formatear={(v) => `${v} tickets`}
+                    datos={datosAtencion}
+                    dataKey="atenciones"
+                    formatear={(v) => `${v} ventas`}
                     formatearEscala={(v) => `${v}`}
                   />
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-5">
-                  <h3 className="font-bold text-gray-800 mb-4">🏆 Ranking vendedoras</h3>
+                  <h3 className="font-bold text-gray-800 mb-4">🏆 Ranking combinado</h3>
                   <div className="space-y-3">
                     {datos.map((v, i) => (
                       <div key={v.nombre} className="flex justify-between items-center">
@@ -335,7 +388,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-amber-700">${v.ventas.toLocaleString('es-AR')}</p>
-                          <p className="text-xs text-gray-500">{v.tickets} tickets</p>
+                          <p className="text-xs text-gray-500">{v.tickets} ventas</p>
                         </div>
                       </div>
                     ))}
