@@ -5,21 +5,16 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
 
-interface ItemParte {
-  producto: string
-  cantidad: string
-}
-
 interface SeccionProductor {
   productorId: string
-  items: ItemParte[]
+  texto: string
 }
 
 export default function NuevoPartePage() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [observaciones, setObservaciones] = useState('')
   const [secciones, setSecciones] = useState<SeccionProductor[]>([
-    { productorId: '', items: [{ producto: '', cantidad: '' }] }
+    { productorId: '', texto: '' }
   ])
   const [productores, setProductores] = useState<Usuario[]>([])
   const [error, setError] = useState('')
@@ -27,9 +22,7 @@ export default function NuevoPartePage() {
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    cargarProductores()
-  }, [])
+  useEffect(() => { cargarProductores() }, [])
 
   const cargarProductores = async () => {
     const { data } = await supabase
@@ -42,7 +35,7 @@ export default function NuevoPartePage() {
   }
 
   const agregarSeccion = () => {
-    setSecciones([...secciones, { productorId: '', items: [{ producto: '', cantidad: '' }] }])
+    setSecciones([...secciones, { productorId: '', texto: '' }])
   }
 
   const quitarSeccion = (si: number) => {
@@ -55,37 +48,21 @@ export default function NuevoPartePage() {
     setSecciones(nuevas)
   }
 
-  const agregarItem = (si: number) => {
+  const actualizarTexto = (si: number, texto: string) => {
     const nuevas = [...secciones]
-    nuevas[si] = { ...nuevas[si], items: [...nuevas[si].items, { producto: '', cantidad: '' }] }
-    setSecciones(nuevas)
-  }
-
-  const quitarItem = (si: number, ii: number) => {
-    const nuevas = [...secciones]
-    nuevas[si] = { ...nuevas[si], items: nuevas[si].items.filter((_, i) => i !== ii) }
-    setSecciones(nuevas)
-  }
-
-  const actualizarItem = (si: number, ii: number, campo: keyof ItemParte, valor: string) => {
-    const nuevas = [...secciones]
-    const nuevosItems = [...nuevas[si].items]
-    nuevosItems[ii] = { ...nuevosItems[ii], [campo]: valor }
-    nuevas[si] = { ...nuevas[si], items: nuevosItems }
+    nuevas[si] = { ...nuevas[si], texto }
     setSecciones(nuevas)
   }
 
   const guardar = async () => {
-    // Validar que cada sección tenga productor y al menos un producto con cantidad
     for (let i = 0; i < secciones.length; i++) {
       const s = secciones[i]
       if (!s.productorId) {
         setError(`Seleccioná el productor en la sección ${i + 1}`)
         return
       }
-      const validos = s.items.filter(it => it.producto && it.cantidad)
-      if (validos.length === 0) {
-        setError(`Agregá al menos un producto en la sección ${i + 1}`)
+      if (!s.texto.trim()) {
+        setError(`Escribí lo producido en la sección ${i + 1}`)
         return
       }
     }
@@ -97,14 +74,12 @@ export default function NuevoPartePage() {
     if (!user) { router.push('/login'); return }
 
     for (const seccion of secciones) {
-      const itemsValidos = seccion.items.filter(it => it.producto && it.cantidad)
-
       const { data: parte, error: parteError } = await supabase
         .from('partes_produccion')
         .insert({
           empleado_id: seccion.productorId,
           fecha,
-          turno: 'mañana', // campo requerido en DB, ya no se usa en la UI
+          turno: 'mañana',
           observaciones: observaciones || null,
         })
         .select()
@@ -116,14 +91,13 @@ export default function NuevoPartePage() {
         return
       }
 
-      const detalle = itemsValidos.map(it => ({
+      const { error: detalleError } = await supabase.from('detalle_parte').insert({
         parte_id: parte.id,
-        producto: it.producto,
-        cantidad: parseFloat(it.cantidad),
-        unidad: 'unidad', // campo requerido en DB, ya no se usa en la UI
-      }))
+        producto: seccion.texto.trim(),
+        cantidad: 1,
+        unidad: 'unidad',
+      })
 
-      const { error: detalleError } = await supabase.from('detalle_parte').insert(detalle)
       if (detalleError) {
         setError('Error al guardar detalle: ' + detalleError.message)
         setGuardando(false)
@@ -188,42 +162,14 @@ export default function NuevoPartePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Productos elaborados</label>
-              <div className="space-y-2">
-                {seccion.items.map((item, ii) => (
-                  <div key={ii} className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      value={item.producto}
-                      onChange={(e) => actualizarItem(si, ii, 'producto', e.target.value)}
-                      placeholder="Ej: Facturas"
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
-                    />
-                    <input
-                      type="number"
-                      value={item.cantidad}
-                      onChange={(e) => actualizarItem(si, ii, 'cantidad', e.target.value)}
-                      placeholder="Cant."
-                      min="0"
-                      className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm"
-                    />
-                    {seccion.items.length > 1 && (
-                      <button
-                        onClick={() => quitarItem(si, ii)}
-                        className="text-red-400 hover:text-red-600 text-lg px-1 shrink-0"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => agregarItem(si)}
-                className="mt-2 text-green-600 hover:text-green-700 text-sm font-medium"
-              >
-                + Agregar producto
-              </button>
+              <label className="block text-sm font-medium text-gray-700 mb-1">¿Qué produjo? *</label>
+              <textarea
+                value={seccion.texto}
+                onChange={(e) => actualizarTexto(si, e.target.value)}
+                placeholder="Ej: 50 facturas, 3 tortas, 20 medialunas..."
+                rows={4}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400 text-sm resize-none"
+              />
             </div>
           </div>
         ))}
