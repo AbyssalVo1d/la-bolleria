@@ -245,7 +245,7 @@ export default function NuevaSalidaPage() {
           {/* Entregado a */}
           <div className="border border-gray-200 rounded-xl p-4 space-y-3">
             <label className="block text-sm font-semibold text-gray-700">
-              ¿A quién se entregó? *
+              ¿Quién retira el material? *
             </label>
             <select
               value={entregadoAId}

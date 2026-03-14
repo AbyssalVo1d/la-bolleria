@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
 
 const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
+const COLORES_MEDIO = ['#2563eb', '#16a34a', '#9333ea', '#d97706']
 const TZ = 'America/Argentina/Buenos_Aires'
 
 type Filtro = 'dia' | 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
@@ -68,6 +69,58 @@ const MEDIO_LABEL: Record<string, string> = {
   debito: '💳 Débito',
   credito: '💳 Crédito',
   transferencia: '📲 Transferencia',
+}
+
+function GraficoPie({ datos }: { datos: DatoMedio[] }) {
+  const [tooltip, setTooltip] = useState<string | null>(null)
+  const total = datos.reduce((s, d) => s + d.total, 0)
+  if (total === 0) return null
+
+  let angle = -Math.PI / 2
+  const slices = datos.map((d, i) => {
+    const pct = d.total / total
+    const start = angle
+    angle += pct * 2 * Math.PI
+    return { ...d, pct, start, end: angle, color: COLORES_MEDIO[i % COLORES_MEDIO.length] }
+  })
+
+  const arc = (start: number, end: number) => {
+    const cx = 100, cy = 100, r = 80
+    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start)
+    const x2 = cx + r * Math.cos(end),   y2 = cy + r * Math.sin(end)
+    const large = end - start > Math.PI ? 1 : 0
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-5 items-center">
+      <svg viewBox="0 0 200 200" className="w-44 h-44 shrink-0">
+        {slices.map((s, i) => (
+          <path key={i} d={arc(s.start, s.end)} fill={s.color}
+            stroke="white" strokeWidth="2"
+            opacity={tooltip && tooltip !== s.medio ? 0.5 : 1}
+            className="transition-opacity cursor-pointer"
+            onMouseEnter={() => setTooltip(s.medio)}
+            onMouseLeave={() => setTooltip(null)} />
+        ))}
+      </svg>
+      <div className="space-y-2 w-full">
+        {slices.map((s, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+            <span className="text-sm text-gray-700 flex-1">{s.medio}</span>
+            <span className="text-sm font-bold text-gray-800">${s.total.toLocaleString('es-AR')}</span>
+            <span className="text-xs text-gray-400 w-10 text-right">{Math.round(s.pct * 100)}%</span>
+            <span className="text-xs text-gray-400 w-12 text-right">{s.cantidad} vta{s.cantidad !== 1 ? 's' : ''}</span>
+          </div>
+        ))}
+        <div className="border-t pt-2 flex justify-between text-xs text-gray-500 font-medium">
+          <span>Total</span>
+          <span>${total.toLocaleString('es-AR')}</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function GraficoBarras({ datos, dataKey, formatear, formatearEscala }: {
@@ -352,17 +405,7 @@ export default function DashboardPage() {
 
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">💳 Medios de pago</h3>
-                  <GraficoBarras datos={medioPago.map(d => ({ nombre: d.medio, valor: d.total, cant: d.cantidad }))}
-                    dataKey="valor"
-                    formatear={(v) => `$${v.toLocaleString('es-AR')}`}
-                    formatearEscala={(v) => `$${v.toLocaleString('es-AR')}`} />
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {medioPago.map(d => (
-                      <span key={d.medio} className="text-xs text-gray-500">
-                        {d.medio}: <strong>{d.cantidad} ventas</strong>
-                      </span>
-                    ))}
-                  </div>
+                  <GraficoPie datos={medioPago} />
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-5">

@@ -343,7 +343,9 @@ export default function StockPage() {
                               {m.detalle ? ` — ${m.detalle}` : ''}
                             </p>
                             {(m as any).entregado_a && (
-                              <p className="text-xs text-gray-400">📦 Entregado a: {(m as any).entregado_a}</p>
+                              <p className="text-xs text-gray-400">
+                                {m.tipo === 'entrada' ? '📦 Recibido por' : '📤 Retirado por'}: {(m as any).entregado_a}
+                              </p>
                             )}
                             <div className="flex items-center gap-2 mt-1">
                               <span className="text-xs text-gray-400">👤 {usuarioMov?.nombre || 'Desconocido'}</span>
@@ -425,15 +427,6 @@ export default function StockPage() {
                     step="0.01"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
-                  <div className="flex gap-2 mt-1">
-                    <span className="text-xs text-gray-400">Sugerencias:</span>
-                    {[3, 5].map(v => (
-                      <button key={v} type="button" onClick={() => setStockMinimo(String(v))}
-                        className="text-xs text-amber-600 hover:text-amber-800 font-medium underline">
-                        {v}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 
@@ -504,15 +497,6 @@ export default function StockPage() {
                     step="0.01"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   />
-                  <div className="flex gap-2 mt-1">
-                    <span className="text-xs text-gray-400">Sugerencias:</span>
-                    {[3, 5].map(v => (
-                      <button key={v} type="button" onClick={() => setStockMinimoEdit(String(v))}
-                        className="text-xs text-amber-600 hover:text-amber-800 font-medium underline">
-                        {v}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 
