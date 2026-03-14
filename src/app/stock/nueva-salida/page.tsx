@@ -15,11 +15,13 @@ interface ItemSalida {
 export default function NuevaSalidaPage() {
   const [insumos, setInsumos] = useState<Insumo[]>([])
   const [productores, setProductores] = useState<Usuario[]>([])
+  const [vendedores, setVendedores] = useState<Usuario[]>([])
   const [items, setItems] = useState<ItemSalida[]>([
     { insumoId: '', cantidad: '', motivo: 'uso_produccion', detalle: '' }
   ])
   const [entregadoAId, setEntregadoAId] = useState('')
   const [entregadoALibre, setEntregadoALibre] = useState('')
+  const [entregadoPorId, setEntregadoPorId] = useState('')
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const router = useRouter()
@@ -28,6 +30,7 @@ export default function NuevaSalidaPage() {
   useEffect(() => {
     cargarInsumos()
     cargarProductores()
+    cargarVendedores()
   }, [])
 
   const cargarInsumos = async () => {
@@ -47,6 +50,16 @@ export default function NuevaSalidaPage() {
       .eq('activo', true)
       .order('nombre')
     setProductores(data || [])
+  }
+
+  const cargarVendedores = async () => {
+    const { data } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('rol', 'ventas')
+      .eq('activo', true)
+      .order('nombre')
+    setVendedores(data || [])
   }
 
   const agregarItem = () => {
@@ -82,11 +95,19 @@ export default function NuevaSalidaPage() {
       return
     }
 
-    const destinatario = entregadoAFinal()
-    if (!destinatario) {
-      setError('Indicá a quién se entregó el material')
+    if (!entregadoPorId) {
+      setError('Indicá quién entrega el material')
       return
     }
+
+    const destinatario = entregadoAFinal()
+    if (!destinatario) {
+      setError('Indicá quién retira el material')
+      return
+    }
+
+    const entregador = vendedores.find(v => v.id === entregadoPorId)
+    const entregadoACompleto = `Entrega: ${entregador?.nombre || ''} · Retira: ${destinatario}`
 
     for (const item of itemsValidos) {
       const insumo = insumos.find(i => i.id === parseInt(item.insumoId))
@@ -110,7 +131,7 @@ export default function NuevaSalidaPage() {
       detalle: i.detalle || null,
       usuario_id: user.id,
       fecha: new Date().toISOString().split('T')[0],
-      entregado_a: destinatario,
+      entregado_a: entregadoACompleto,
     }))
 
     const { error: err } = await supabase.from('movimientos_stock').insert(movimientos)
@@ -242,8 +263,25 @@ export default function NuevaSalidaPage() {
             + Agregar otro insumo
           </button>
 
-          {/* Entregado a */}
-          <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+          {/* Quién entrega / quién retira */}
+          <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                ¿Quién entrega el material? *
+              </label>
+              <select
+                value={entregadoPorId}
+                onChange={(e) => setEntregadoPorId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                <option value="">Seleccioná una persona</option>
+                {vendedores.map(v => (
+                  <option key={v.id} value={v.id}>{v.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700">
               ¿Quién retira el material? *
             </label>
@@ -267,6 +305,7 @@ export default function NuevaSalidaPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
               />
             )}
+            </div>
           </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
