@@ -12,8 +12,18 @@ const MEDIOS_PAGO = [
   { value: 'transferencia',  label: '📲 Transferencia / QR' },
 ]
 
+function formatMiles(valor: string): string {
+  const solo = valor.replace(/\D/g, '')
+  if (!solo) return ''
+  return solo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+function parseMonto(formateado: string): number {
+  return parseFloat(formateado.replace(/\./g, '').replace(',', '.')) || 0
+}
+
 export default function NuevaVentaPage() {
-  const [monto, setMonto] = useState('')
+  const [montoDisplay, setMontoDisplay] = useState('')
   const [medioPago, setMedioPago] = useState('efectivo')
   const [cobradoPor, setCobradoPor] = useState('')
   const [atendidoPor, setAtendidoPor] = useState('')
@@ -42,7 +52,8 @@ export default function NuevaVentaPage() {
   }
 
   const guardar = async () => {
-    if (!monto || parseFloat(monto) <= 0) { setError('Ingresá un monto válido'); return }
+    const monto = parseMonto(montoDisplay)
+    if (!montoDisplay || monto <= 0) { setError('Ingresá un monto válido'); return }
     if (!cobradoPor) { setError('Indicá quién cobró'); return }
     if (!atendidoPor) { setError('Indicá quién atendió'); return }
 
@@ -50,7 +61,7 @@ export default function NuevaVentaPage() {
     setError('')
 
     const { error: err } = await supabase.from('ventas').insert({
-      monto: parseFloat(monto),
+      monto: parseMonto(montoDisplay),
       cobrado_por: cobradoPor,
       atendido_por: atendidoPor,
       medio_pago: medioPago,
@@ -72,9 +83,18 @@ export default function NuevaVentaPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Monto ($) *</label>
-            <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
-              placeholder="Ej: 5500" min="0" step="0.01"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+              <input type="text" inputMode="numeric" value={montoDisplay}
+                onChange={(e) => setMontoDisplay(formatMiles(e.target.value))}
+                placeholder="0"
+                className="w-full border border-gray-300 rounded-lg pl-7 pr-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 text-lg font-medium" />
+            </div>
+            {montoDisplay && (
+              <p className="text-xs text-gray-400 mt-1">
+                = ${parseMonto(montoDisplay).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+              </p>
+            )}
           </div>
 
           <div>

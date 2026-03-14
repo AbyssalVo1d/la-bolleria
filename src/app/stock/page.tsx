@@ -64,7 +64,7 @@ export default function StockPage() {
       .from('movimientos_stock')
       .select('*, insumos(nombre, unidad), usuarios(nombre)')
       .order('creado_en', { ascending: false })
-      .limit(100)
+      .limit(500)
     setMovimientos(data || [])
     setLoadingHistorial(false)
   }

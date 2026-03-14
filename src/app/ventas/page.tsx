@@ -57,7 +57,7 @@ export default function VentasPage() {
       .from('ventas')
       .select('*')
       .order('creado_en', { ascending: false })
-      .limit(100)
+      .limit(500)
 
     if (rows && rows.length > 0) {
       const ids = [...new Set([...rows.map(v => v.cobrado_por), ...rows.map(v => v.atendido_por)])]
