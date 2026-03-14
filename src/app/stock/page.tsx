@@ -197,7 +197,7 @@ export default function StockPage() {
           >
             📋 Historial
           </button>
-          {(usuario?.rol === 'admin' || usuario?.rol === 'produccion') && (
+          {(usuario?.rol === 'admin' || usuario?.rol === 'produccion' || usuario?.rol === 'ventas') && (
           <button
             onClick={() => { setVista('nuevo-insumo'); setError(''); setExito('') }}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
@@ -280,7 +280,7 @@ export default function StockPage() {
                             </p>
                             <p className="text-sm text-gray-500">{insumo.unidad}</p>
                           </div>
-                          {(usuario?.rol === 'admin' || usuario?.rol === 'produccion') && (
+                          {(usuario?.rol === 'admin' || usuario?.rol === 'produccion' || usuario?.rol === 'ventas') && (
                             <button
                               onClick={() => abrirEditar(insumo)}
                               className="text-gray-400 hover:text-amber-600 transition text-lg leading-none mt-0.5"
