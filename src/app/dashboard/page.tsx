@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
+import * as XLSX from 'xlsx'
 
 const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
 const COLORES_MEDIO = ['#2563eb', '#16a34a', '#9333ea', '#d97706']
@@ -263,6 +264,86 @@ export default function DashboardPage() {
     router.push('/login')
   }
 
+  const descargarBackup = async () => {
+    // 1. Ventas
+    const { data: ventasRows } = await supabase
+      .from('ventas')
+      .select('*')
+      .order('creado_en', { ascending: true })
+
+    const allIds = ventasRows
+      ? [...new Set([...ventasRows.map((v: any) => v.cobrado_por), ...ventasRows.map((v: any) => v.atendido_por)])]
+      : []
+    const { data: usersData } = await supabase.from('usuarios').select('id,nombre').in('id', allIds)
+    const uMap: Record<string, string> = Object.fromEntries((usersData || []).map((u: any) => [u.id, u.nombre]))
+
+    const MEDIO_ES: Record<string, string> = {
+      efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia',
+    }
+    const filasVentas = (ventasRows || []).map((v: any) => ({
+      Fecha: new Date(v.creado_en).toLocaleString('es-AR', { timeZone: TZ }),
+      Monto: Number(v.monto),
+      'Medio de pago': MEDIO_ES[v.medio_pago] || v.medio_pago,
+      'Cobrado por': uMap[v.cobrado_por] || v.cobrado_por,
+      'Atendido por': uMap[v.atendido_por] || v.atendido_por,
+    }))
+
+    // 2. Ranking vendedoras (derivado)
+    const rankingMap: Record<string, { Vendedora: string, 'Total vendido': number, 'Cantidad de ventas': number }> = {}
+    filasVentas.forEach(v => {
+      const n = v['Cobrado por']
+      if (!rankingMap[n]) rankingMap[n] = { Vendedora: n, 'Total vendido': 0, 'Cantidad de ventas': 0 }
+      rankingMap[n]['Total vendido'] += v.Monto
+      rankingMap[n]['Cantidad de ventas'] += 1
+    })
+    const filasRanking = Object.values(rankingMap).sort((a, b) => b['Total vendido'] - a['Total vendido'])
+
+    // 3. Stock — Movimientos
+    const { data: movRows } = await supabase
+      .from('movimientos_stock')
+      .select('*, insumos(nombre, unidad), usuarios(nombre)')
+      .order('creado_en', { ascending: true })
+
+    const filasStock = (movRows || []).map((m: any) => ({
+      Fecha: new Date(m.creado_en).toLocaleString('es-AR', { timeZone: TZ }),
+      Insumo: m.insumos?.nombre || '',
+      Tipo: m.tipo === 'entrada' ? 'Entrada' : 'Salida',
+      Cantidad: Number(m.cantidad),
+      'Unidad': m.insumos?.unidad || '',
+      'Entregado a': m.entregado_a || '',
+      Usuario: m.usuarios?.nombre || '',
+    }))
+
+    // 4. Producción
+    const { data: partesRows } = await supabase
+      .from('partes_produccion')
+      .select('fecha, usuarios(nombre), detalle_parte(producto, cantidad)')
+      .order('fecha', { ascending: true })
+
+    const filasProduccion: any[] = []
+    ;(partesRows || []).forEach((p: any) => {
+      const productor = p.usuarios?.nombre || ''
+      ;(p.detalle_parte || []).forEach((d: any) => {
+        filasProduccion.push({
+          Fecha: p.fecha,
+          Productor: productor,
+          Producto: d.producto,
+          Cantidad: Number(d.cantidad),
+        })
+      })
+    })
+
+    // Armar libro
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasVentas), 'Ventas')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasRanking), 'Ranking vendedoras')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasStock), 'Stock - Movimientos')
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filasProduccion), 'Producción')
+
+    const fechaHoy = new Date().toLocaleDateString('en-CA', { timeZone: TZ })
+    XLSX.writeFile(wb, `backup-la-bolleria-${fechaHoy}.xlsx`)
+  }
+
   if (!usuario) return (
     <div className="min-h-screen bg-amber-50 flex items-center justify-center">
       <p className="text-amber-800">Cargando...</p>
@@ -277,7 +358,12 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold">La Bollería</h1>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm">Hola, <strong>{usuario.nombre}</strong></span>
+          <span className="text-sm hidden sm:inline">Hola, <strong>{usuario.nombre}</strong></span>
+          {(usuario.rol === 'admin' || usuario.rol === 'ventas') && (
+            <button onClick={descargarBackup} className="bg-amber-600 hover:bg-amber-500 text-white text-sm px-3 py-1 rounded-lg transition">
+              ⬇️ Excel
+            </button>
+          )}
           <button onClick={handleLogout} className="bg-amber-900 hover:bg-amber-800 text-white text-sm px-3 py-1 rounded-lg transition">
             Salir
           </button>
