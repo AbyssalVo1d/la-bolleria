@@ -17,6 +17,16 @@ type Vista = 'lista' | 'nuevo' | 'editar'
 
 const UNIDADES = ['unidad', 'docena', 'kg']
 
+const CATEGORIAS_FIJAS = [
+  'Viennoiserie', 'Budines', 'Porciones', 'Alfajores', 'Cookies',
+  'Masas Finas', 'Tortas', 'Postres y Tartas', 'Hojaldre',
+  'Facturas de Manteca', 'Panes', 'Bizcochos y Chipá', 'Café al Paso',
+]
+
+function normalizar(s: string) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 export default function CatalogoPage() {
   const [productos, setProductos] = useState<Producto[]>([])
   const [vista, setVista] = useState<Vista>('lista')
@@ -29,16 +39,15 @@ export default function CatalogoPage() {
   // Formulario
   const [editando, setEditando] = useState<Producto | null>(null)
   const [fNombre, setFNombre] = useState('')
-  const [fCategoria, setFCategoria] = useState('')
+  const [fCategoriaSelect, setFCategoriaSelect] = useState('')
+  const [fCategoriaOtra, setFCategoriaOtra] = useState('')
   const [fPrecio, setFPrecio] = useState('')
   const [fUnidad, setFUnidad] = useState('unidad')
 
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    verificarAcceso()
-  }, [])
+  useEffect(() => { verificarAcceso() }, [])
 
   const verificarAcceso = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -50,19 +59,18 @@ export default function CatalogoPage() {
 
   const cargarProductos = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('productos')
-      .select('*')
-      .order('categoria')
-      .order('nombre')
+    const { data } = await supabase.from('productos').select('*').order('categoria').order('nombre')
     setProductos(data || [])
     setLoading(false)
   }
 
+  const categoriaActual = fCategoriaSelect === '__otra__' ? fCategoriaOtra : fCategoriaSelect
+
   const abrirNuevo = () => {
     setEditando(null)
     setFNombre('')
-    setFCategoria('')
+    setFCategoriaSelect('')
+    setFCategoriaOtra('')
     setFPrecio('')
     setFUnidad('unidad')
     setError('')
@@ -72,7 +80,9 @@ export default function CatalogoPage() {
   const abrirEditar = (p: Producto) => {
     setEditando(p)
     setFNombre(p.nombre)
-    setFCategoria(p.categoria)
+    const esFija = CATEGORIAS_FIJAS.includes(p.categoria)
+    setFCategoriaSelect(esFija ? p.categoria : '__otra__')
+    setFCategoriaOtra(esFija ? '' : p.categoria)
     setFPrecio(p.precio != null ? String(p.precio) : '')
     setFUnidad(p.unidad)
     setError('')
@@ -81,13 +91,13 @@ export default function CatalogoPage() {
 
   const guardar = async () => {
     if (!fNombre.trim()) { setError('El nombre es obligatorio'); return }
-    if (!fCategoria.trim()) { setError('La categoría es obligatoria'); return }
+    if (!categoriaActual.trim()) { setError('La categoría es obligatoria'); return }
 
     setGuardando(true)
     setError('')
     const payload = {
       nombre: fNombre.trim(),
-      categoria: fCategoria.trim(),
+      categoria: categoriaActual.trim(),
       precio: fPrecio !== '' ? parseFloat(fPrecio.replace(',', '.')) : null,
       unidad: fUnidad,
     }
@@ -112,8 +122,10 @@ export default function CatalogoPage() {
 
   const productosFiltrados = productos.filter(p => {
     if (soloActivos && !p.activo) return false
-    if (busqueda && !p.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
-        !p.categoria.toLowerCase().includes(busqueda.toLowerCase())) return false
+    if (busqueda) {
+      const q = normalizar(busqueda)
+      if (!normalizar(p.nombre).includes(q) && !normalizar(p.categoria).includes(q)) return false
+    }
     return true
   })
 
@@ -135,24 +147,29 @@ export default function CatalogoPage() {
               <input
                 value={fNombre}
                 onChange={e => setFNombre(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
                 placeholder="Ej: Croissant Simple"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
-              <input
-                value={fCategoria}
-                onChange={e => setFCategoria(e.target.value)}
-                list="categorias-list"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                placeholder="Ej: Viennoiserie"
-              />
-              <datalist id="categorias-list">
-                {[...new Set(productos.map(p => p.categoria))].map(c => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
+              <select
+                value={fCategoriaSelect}
+                onChange={e => setFCategoriaSelect(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              >
+                <option value="">Seleccioná una categoría</option>
+                {CATEGORIAS_FIJAS.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__otra__">Otra...</option>
+              </select>
+              {fCategoriaSelect === '__otra__' && (
+                <input
+                  value={fCategoriaOtra}
+                  onChange={e => setFCategoriaOtra(e.target.value)}
+                  placeholder="Escribí la nueva categoría"
+                  className="mt-2 w-full border border-amber-400 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -163,7 +180,7 @@ export default function CatalogoPage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
                   placeholder="0.00"
                 />
               </div>
@@ -172,7 +189,7 @@ export default function CatalogoPage() {
                 <select
                   value={fUnidad}
                   onChange={e => setFUnidad(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
                 >
                   {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -205,13 +222,12 @@ export default function CatalogoPage() {
       </header>
 
       <main className="p-6 max-w-3xl mx-auto space-y-4">
-        {/* Filtros */}
         <div className="bg-white rounded-xl shadow px-5 py-4 flex flex-col sm:flex-row gap-3">
           <input
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
             placeholder="Buscar producto o categoría..."
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
           <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
             <input
@@ -224,7 +240,6 @@ export default function CatalogoPage() {
           </label>
         </div>
 
-        {/* Resumen */}
         <p className="text-xs text-gray-500 px-1">
           {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''} · {categorias.length} categoría{categorias.length !== 1 ? 's' : ''}
         </p>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -23,6 +23,7 @@ interface Producto {
 
 interface ItemVenta {
   productoId: string
+  productoNombre: string
   cantidad: string
   monto: string
 }
@@ -45,8 +46,89 @@ function fmtMonto(s: string): string {
   return solo.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
 }
 
+function normalizar(s: string) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function BuscadorProducto({
+  productos,
+  value,
+  onChange,
+}: {
+  productos: Producto[]
+  value: { productoId: string; productoNombre: string }
+  onChange: (productoId: string, productoNombre: string) => void
+}) {
+  const [query, setQuery] = useState(value.productoNombre)
+  const [abierto, setAbierto] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { setQuery(value.productoNombre) }, [value.productoNombre])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filtrados = query
+    ? productos.filter(p => normalizar(p.nombre).includes(normalizar(query)))
+    : productos
+
+  const categorias = [...new Set(filtrados.map(p => p.categoria))]
+
+  const seleccionar = (p: Producto) => {
+    onChange(String(p.id), p.nombre)
+    setQuery(p.nombre)
+    setAbierto(false)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={e => { setQuery(e.target.value); setAbierto(true); if (!e.target.value) onChange('', '') }}
+        onFocus={() => setAbierto(true)}
+        placeholder="Buscar producto..."
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
+      {abierto && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+          {categorias.length === 0 ? (
+            <p className="text-sm text-gray-400 px-4 py-3">Sin resultados</p>
+          ) : (
+            categorias.map(cat => (
+              <div key={cat}>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1 bg-gray-50">
+                  {cat}
+                </p>
+                {filtrados.filter(p => p.categoria === cat).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onMouseDown={() => seleccionar(p)}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-blue-50 flex justify-between items-center"
+                  >
+                    <span>{p.nombre}</span>
+                    {p.precio != null && (
+                      <span className="text-xs text-gray-400 ml-2">${Number(p.precio).toLocaleString('es-AR')}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function NuevaVentaPage() {
-  const [items, setItems] = useState<ItemVenta[]>([{ productoId: '', cantidad: '', monto: '' }])
+  const [items, setItems] = useState<ItemVenta[]>([{ productoId: '', productoNombre: '', cantidad: '', monto: '' }])
   const [productos, setProductos] = useState<Producto[]>([])
   const [medioPago, setMedioPago] = useState('efectivo')
   const [turno, setTurno] = useState(turnoSegunHora())
@@ -79,6 +161,12 @@ export default function NuevaVentaPage() {
 
   const productoById = (id: string) => productos.find(p => String(p.id) === id)
 
+  const actualizarProducto = (i: number, productoId: string, productoNombre: string) => {
+    const nuevos = [...items]
+    nuevos[i] = { productoId, productoNombre, cantidad: '', monto: '' }
+    setItems(nuevos)
+  }
+
   const actualizarCantidad = (i: number, val: string) => {
     const nuevos = [...items]
     nuevos[i].cantidad = val
@@ -101,13 +189,7 @@ export default function NuevaVentaPage() {
     setItems(nuevos)
   }
 
-  const actualizarProducto = (i: number, productoId: string) => {
-    const nuevos = [...items]
-    nuevos[i] = { productoId, cantidad: '', monto: '' }
-    setItems(nuevos)
-  }
-
-  const agregarItem = () => setItems([...items, { productoId: '', cantidad: '', monto: '' }])
+  const agregarItem = () => setItems([...items, { productoId: '', productoNombre: '', cantidad: '', monto: '' }])
   const quitarItem = (i: number) => setItems(items.filter((_, idx) => idx !== i))
 
   const total = items.reduce((s, it) => s + parsNum(it.monto), 0)
@@ -127,13 +209,7 @@ export default function NuevaVentaPage() {
 
     const { data: venta, error: errVenta } = await supabase
       .from('ventas')
-      .insert({
-        monto: total,
-        medio_pago: medioPago,
-        cobrado_por: cobradoPor,
-        atendido_por: atendidoPor,
-        turno,
-      })
+      .insert({ monto: total, medio_pago: medioPago, cobrado_por: cobradoPor, atendido_por: atendidoPor, turno })
       .select()
       .single()
 
@@ -162,8 +238,6 @@ export default function NuevaVentaPage() {
     router.push('/ventas')
   }
 
-  const categorias = [...new Set(productos.map(p => p.categoria))]
-
   return (
     <div className="min-h-screen bg-amber-50">
       <header className="bg-blue-700 text-white px-6 py-4 flex items-center gap-3 shadow">
@@ -173,7 +247,6 @@ export default function NuevaVentaPage() {
 
       <main className="p-6 max-w-lg mx-auto space-y-4">
 
-        {/* Productos */}
         {items.map((item, i) => {
           const prod = productoById(item.productoId)
           return (
@@ -189,22 +262,11 @@ export default function NuevaVentaPage() {
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Producto *</label>
-                <select
-                  value={item.productoId}
-                  onChange={e => actualizarProducto(i, e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  <option value="">Seleccioná un producto</option>
-                  {categorias.map(cat => (
-                    <optgroup key={cat} label={cat}>
-                      {productos.filter(p => p.categoria === cat).map(p => (
-                        <option key={p.id} value={String(p.id)}>
-                          {p.nombre}{p.precio != null ? ` — $${Number(p.precio).toLocaleString('es-AR')}` : ''}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <BuscadorProducto
+                  productos={productos}
+                  value={{ productoId: item.productoId, productoNombre: item.productoNombre }}
+                  onChange={(id, nombre) => actualizarProducto(i, id, nombre)}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -247,7 +309,6 @@ export default function NuevaVentaPage() {
           + Agregar otro producto
         </button>
 
-        {/* Total */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 flex justify-between items-center">
           <span className="text-sm font-medium text-blue-700">Total</span>
           <span className="text-xl font-bold text-blue-700">
@@ -255,7 +316,6 @@ export default function NuevaVentaPage() {
           </span>
         </div>
 
-        {/* Medio de pago */}
         <div className="bg-white rounded-xl shadow p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Medio de pago *</label>
           <div className="grid grid-cols-2 gap-2">
@@ -272,7 +332,6 @@ export default function NuevaVentaPage() {
           </div>
         </div>
 
-        {/* Turno */}
         <div className="bg-white rounded-xl shadow p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Turno</label>
           <div className="grid grid-cols-2 gap-2">
@@ -289,7 +348,6 @@ export default function NuevaVentaPage() {
           </div>
         </div>
 
-        {/* Vendedoras */}
         <div className="bg-white rounded-xl shadow p-4 space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">¿Quién cobró? *</label>
