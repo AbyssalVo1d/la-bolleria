@@ -360,6 +360,11 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <span className="text-sm hidden sm:inline">Hola, <strong>{usuario.nombre}</strong></span>
           {(usuario.rol === 'admin' || usuario.rol === 'ventas') && (
+            <button onClick={() => router.push('/cierre-dia')} className="bg-white text-amber-700 font-semibold text-sm px-3 py-1 rounded-lg transition hover:bg-amber-50">
+              📊 Cierre
+            </button>
+          )}
+          {(usuario.rol === 'admin' || usuario.rol === 'ventas') && (
             <button onClick={descargarBackup} className="bg-amber-600 hover:bg-amber-500 text-white text-sm px-3 py-1 rounded-lg transition">
               ⬇️ Excel
             </button>
@@ -393,6 +398,13 @@ export default function DashboardPage() {
               className="bg-white rounded-xl shadow p-4 cursor-pointer hover:shadow-md transition border-l-4 border-blue-500">
               <div className="text-2xl mb-1">💰</div>
               <p className="font-bold text-sm text-gray-800">Ventas</p>
+            </div>
+          )}
+          {(usuario.rol === 'admin' || usuario.rol === 'ventas') && (
+            <div onClick={() => router.push('/catalogo')}
+              className="bg-white rounded-xl shadow p-4 cursor-pointer hover:shadow-md transition border-l-4 border-orange-400">
+              <div className="text-2xl mb-1">📋</div>
+              <p className="font-bold text-sm text-gray-800">Catálogo</p>
             </div>
           )}
           {usuario.rol === 'admin' && (

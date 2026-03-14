@@ -72,10 +72,16 @@ export default function ProduccionPage() {
           <button onClick={() => router.push('/dashboard')} className="text-green-200 hover:text-white text-sm">← Volver</button>
           <span className="text-xl font-bold">🎂 Producción</span>
         </div>
-        <button onClick={() => router.push('/produccion/nuevo-parte')}
-          className="bg-white text-green-700 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-green-50 transition">
-          + Nuevo parte
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => router.push('/produccion/nuevo-parte')}
+            className="bg-white text-green-700 font-semibold px-3 py-2 rounded-lg text-sm hover:bg-green-50 transition">
+            + Producido
+          </button>
+          <button onClick={() => router.push('/produccion/nuevo-parte-sobrante')}
+            className="bg-orange-500 hover:bg-orange-400 text-white font-semibold px-3 py-2 rounded-lg text-sm transition">
+            + Sobrante
+          </button>
+        </div>
       </header>
 
       <main className="p-6 max-w-3xl mx-auto">
@@ -123,11 +129,18 @@ export default function ProduccionPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {partes.map((parte) => (
-              <div key={parte.id} className="bg-white rounded-xl shadow p-5">
+            {partes.map((parte) => {
+              const esSobrante = (parte as any).tipo === 'sobrante'
+              return (
+              <div key={parte.id} className={`rounded-xl shadow p-5 ${esSobrante ? 'bg-orange-50 border border-orange-200' : 'bg-white'}`}>
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <p className="font-bold text-gray-800">{formatFechaLabel(parte.fecha)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-gray-800">{formatFechaLabel(parte.fecha)}</p>
+                      {esSobrante && (
+                        <span className="text-xs bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full font-medium">Sobrante</span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">{(parte as any).usuarios?.nombre}</p>
                   </div>
                 </div>
@@ -147,7 +160,7 @@ export default function ProduccionPage() {
                   <p className="text-sm text-gray-500 mt-2 italic">📝 {parte.observaciones}</p>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </main>
