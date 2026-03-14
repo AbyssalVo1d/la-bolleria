@@ -6,124 +6,107 @@ import { createClient } from '@/lib/supabase/client'
 import { Usuario } from '@/types'
 
 const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
+const TZ = 'America/Argentina/Buenos_Aires'
 
 type Filtro = 'dia' | 'semana' | 'mes' | 'trimestre' | 'anio' | 'personalizado'
 
-function obtenerRango(filtro: Filtro, offset: number, desdeCustom: string, hastaCustom: string): { desde: Date, hasta: Date, label: string } {
-  const hoy = new Date()
-  let desde = new Date()
-  let hasta = new Date()
+function obtenerRango(filtro: Filtro, offset: number, desdeCustom: string, hastaCustom: string) {
+  // Usar fecha local Argentina
+  const ahora = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }))
+  let desde = new Date(ahora)
+  let hasta = new Date(ahora)
   let label = ''
 
   if (filtro === 'dia') {
-    desde = new Date(hoy)
-    desde.setDate(hoy.getDate() + offset)
+    desde.setDate(ahora.getDate() + offset)
     desde.setHours(0, 0, 0, 0)
     hasta = new Date(desde)
     hasta.setHours(23, 59, 59, 999)
-    label = desde.toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
+    label = desde.toLocaleDateString('es-AR', { timeZone: TZ, weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
     label = label.charAt(0).toUpperCase() + label.slice(1)
   } else if (filtro === 'semana') {
-    const dia = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1
-    desde = new Date(hoy)
-    desde.setDate(hoy.getDate() - dia + offset * 7)
+    const dia = ahora.getDay() === 0 ? 6 : ahora.getDay() - 1
+    desde.setDate(ahora.getDate() - dia + offset * 7)
     desde.setHours(0, 0, 0, 0)
     hasta = new Date(desde)
     hasta.setDate(desde.getDate() + 6)
     hasta.setHours(23, 59, 59, 999)
-    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' }
+    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', timeZone: TZ }
     label = `${desde.toLocaleDateString('es-AR', opts)} al ${hasta.toLocaleDateString('es-AR', opts)} ${hasta.getFullYear()}`
   } else if (filtro === 'mes') {
-    desde = new Date(hoy.getFullYear(), hoy.getMonth() + offset, 1)
-    hasta = new Date(hoy.getFullYear(), hoy.getMonth() + offset + 1, 0, 23, 59, 59)
-    label = desde.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+    desde = new Date(ahora.getFullYear(), ahora.getMonth() + offset, 1)
+    hasta = new Date(ahora.getFullYear(), ahora.getMonth() + offset + 1, 0, 23, 59, 59)
+    label = desde.toLocaleDateString('es-AR', { timeZone: TZ, month: 'long', year: 'numeric' })
     label = label.charAt(0).toUpperCase() + label.slice(1)
   } else if (filtro === 'trimestre') {
-    const trimestre = Math.floor(hoy.getMonth() / 3) + offset
-    const anio = hoy.getFullYear() + Math.floor(trimestre / 4)
+    const trimestre = Math.floor(ahora.getMonth() / 3) + offset
+    const anio = ahora.getFullYear() + Math.floor(trimestre / 4)
     const trimNorm = ((trimestre % 4) + 4) % 4
     desde = new Date(anio, trimNorm * 3, 1)
     hasta = new Date(anio, trimNorm * 3 + 3, 0, 23, 59, 59)
     label = `T${trimNorm + 1} ${anio}`
   } else if (filtro === 'anio') {
-    const anio = hoy.getFullYear() + offset
+    const anio = ahora.getFullYear() + offset
     desde = new Date(anio, 0, 1)
     hasta = new Date(anio, 11, 31, 23, 59, 59)
     label = `${anio}`
   } else {
-    // personalizado
-    desde = desdeCustom ? new Date(desdeCustom + 'T00:00:00') : new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+    desde = desdeCustom ? new Date(desdeCustom + 'T00:00:00') : new Date(ahora.getFullYear(), ahora.getMonth(), 1)
     hasta = hastaCustom ? new Date(hastaCustom + 'T23:59:59') : new Date()
-    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' }
+    const opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ }
     label = `${desde.toLocaleDateString('es-AR', opts)} — ${hasta.toLocaleDateString('es-AR', opts)}`
   }
 
   return { desde, hasta, label }
 }
 
-type DatoVendedora = { nombre: string, ventas: number, tickets: number, atenciones: number }
+type DatoVendedora = { nombre: string, ventas: number, cantidad: number }
+type DatoMedio = { medio: string, total: number, cantidad: number }
 
-function GraficoBarras({
-  datos,
-  dataKey,
-  formatear,
-  formatearEscala,
-}: {
-  datos: DatoVendedora[]
-  dataKey: 'ventas' | 'tickets' | 'atenciones'
+const MEDIO_LABEL: Record<string, string> = {
+  efectivo: '💵 Efectivo',
+  debito: '💳 Débito',
+  credito: '💳 Crédito',
+  transferencia: '📲 Transferencia',
+}
+
+function GraficoBarras({ datos, dataKey, formatear, formatearEscala }: {
+  datos: { nombre: string, [k: string]: any }[]
+  dataKey: string
   formatear: (v: number) => string
   formatearEscala: (v: number) => string
 }) {
   const [tooltip, setTooltip] = useState<{ nombre: string, valor: string } | null>(null)
-  const maximo = Math.max(...datos.map(d => d[dataKey]))
-
-  const pasos = 2
-  const escala = Array.from({ length: pasos + 1 }, (_, i) =>
-    Math.round((maximo / pasos) * i)
-  )
+  const maximo = Math.max(...datos.map(d => d[dataKey]), 1)
+  const escala = [0, Math.round(maximo / 2), maximo]
 
   return (
     <div className="relative">
-      <div className="relative">
-        <div className="space-y-3">
-          {datos.map((d, i) => {
-            const porcentaje = maximo > 0 ? (d[dataKey] / maximo) * 100 : 0
-            return (
-              <div key={d.nombre} className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-gray-700">{d.nombre}</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-6 bg-gray-50 rounded-lg overflow-hidden">
-                    <div
-                      className="h-full rounded-lg cursor-pointer transition-opacity hover:opacity-85"
-                      style={{
-                        width: `${porcentaje}%`,
-                        backgroundColor: COLORES[i % COLORES.length],
-                        minWidth: porcentaje > 0 ? '8px' : '0',
-                      }}
-                      onMouseEnter={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
-                      onMouseLeave={() => setTooltip(null)}
-                      onTouchStart={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
-                      onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
-                    />
-                  </div>
-                  <span className="text-xs font-bold text-amber-700 shrink-0 w-28 text-right">
-                    {formatear(d[dataKey])}
-                  </span>
+      <div className="space-y-3">
+        {datos.map((d, i) => {
+          const pct = (d[dataKey] / maximo) * 100
+          return (
+            <div key={d.nombre} className="flex flex-col gap-0.5">
+              <span className="text-xs font-semibold text-gray-700">{d.nombre}</span>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-6 bg-gray-50 rounded-lg overflow-hidden">
+                  <div className="h-full rounded-lg cursor-pointer transition-opacity hover:opacity-85"
+                    style={{ width: `${pct}%`, backgroundColor: COLORES[i % COLORES.length], minWidth: pct > 0 ? '8px' : '0' }}
+                    onMouseEnter={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                    onMouseLeave={() => setTooltip(null)}
+                    onTouchStart={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                    onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
+                  />
                 </div>
+                <span className="text-xs font-bold text-amber-700 shrink-0 w-28 text-right">{formatear(d[dataKey])}</span>
               </div>
-            )
-          })}
-        </div>
-
-        <div className="flex justify-between mt-3 pr-32">
-          {escala.map((v, i) => (
-            <span key={i} className="text-xs text-gray-400">
-              {formatearEscala(v)}
-            </span>
-          ))}
-        </div>
+            </div>
+          )
+        })}
       </div>
-
+      <div className="flex justify-between mt-3 pr-32">
+        {escala.map((v, i) => <span key={i} className="text-xs text-gray-400">{formatearEscala(v)}</span>)}
+      </div>
       {tooltip && (
         <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm z-10 pointer-events-none">
           <p className="font-semibold text-gray-800 mb-1">{tooltip.nombre}</p>
@@ -158,13 +141,26 @@ export default function DashboardPage() {
   const cargarDatos = async () => {
     setLoading(true)
     const { desde, hasta } = obtenerRango(filtro, offset, desdeCustom, hastaCustom)
-    const { data } = await supabase
+
+    const { data: rows } = await supabase
       .from('ventas')
-      .select('*, cobrador:cobrado_por(nombre), atendedor:atendido_por(nombre)')
+      .select('*')
       .gte('creado_en', desde.toISOString())
       .lte('creado_en', hasta.toISOString())
       .order('creado_en', { ascending: true })
-    setVentas(data || [])
+
+    if (rows && rows.length > 0) {
+      const ids = [...new Set([...rows.map((v: any) => v.cobrado_por), ...rows.map((v: any) => v.atendido_por)])]
+      const { data: users } = await supabase.from('usuarios').select('id,nombre').in('id', ids)
+      const map: Record<string, string> = Object.fromEntries((users || []).map((u: any) => [u.id, u.nombre]))
+      setVentas(rows.map((v: any) => ({
+        ...v,
+        cobrador_nombre: map[v.cobrado_por] || 'Sin nombre',
+        atendedor_nombre: map[v.atendido_por] || 'Sin nombre',
+      })))
+    } else {
+      setVentas([])
+    }
     setLoading(false)
   }
 
@@ -173,39 +169,45 @@ export default function DashboardPage() {
   const datosCobrador = (): DatoVendedora[] => {
     const mapa: Record<string, DatoVendedora> = {}
     ventas.forEach(v => {
-      const nombre = v.cobrador?.nombre || 'Sin nombre'
-      if (!mapa[nombre]) mapa[nombre] = { nombre, ventas: 0, tickets: 0, atenciones: 0 }
-      mapa[nombre].ventas += Number(v.monto)
-      mapa[nombre].tickets += 1
+      const n = v.cobrador_nombre
+      if (!mapa[n]) mapa[n] = { nombre: n, ventas: 0, cantidad: 0 }
+      mapa[n].ventas += Number(v.monto)
+      mapa[n].cantidad += 1
     })
     return Object.values(mapa).sort((a, b) => b.ventas - a.ventas)
   }
 
-  const datosAtendedor = (): DatoVendedora[] => {
+  const datosAtendedor = (): (DatoVendedora & { nombre: string })[] => {
     const mapa: Record<string, DatoVendedora> = {}
     ventas.forEach(v => {
-      const nombre = v.atendedor?.nombre || 'Sin nombre'
-      if (!mapa[nombre]) mapa[nombre] = { nombre, ventas: 0, tickets: 0, atenciones: 0 }
-      mapa[nombre].atenciones += 1
-      mapa[nombre].ventas += Number(v.monto)
-      mapa[nombre].tickets += 1
+      const n = v.atendedor_nombre
+      if (!mapa[n]) mapa[n] = { nombre: n, ventas: 0, cantidad: 0 }
+      mapa[n].cantidad += 1
+      mapa[n].ventas += Number(v.monto)
     })
-    return Object.values(mapa).sort((a, b) => b.atenciones - a.atenciones)
+    return Object.values(mapa).sort((a, b) => b.cantidad - a.cantidad)
   }
 
-  const datos = datosCobrador()
-  const datosAtencion = datosAtendedor()
+  const datosMedioPago = (): DatoMedio[] => {
+    const mapa: Record<string, DatoMedio> = {}
+    ventas.forEach(v => {
+      const m = v.medio_pago || 'efectivo'
+      const label = MEDIO_LABEL[m] || m
+      if (!mapa[label]) mapa[label] = { medio: label, total: 0, cantidad: 0 }
+      mapa[label].total += Number(v.monto)
+      mapa[label].cantidad += 1
+    })
+    return Object.values(mapa).sort((a, b) => b.total - a.total)
+  }
+
+  const cobrador = datosCobrador()
+  const atendedor = datosAtendedor()
+  const medioPago = datosMedioPago()
   const totalVentas = ventas.reduce((s, v) => s + Number(v.monto), 0)
-  const totalTickets = ventas.length
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
-  }
-
-  const cambiarFiltro = (f: Filtro) => {
-    setFiltro(f)
-    setOffset(0)
   }
 
   if (!usuario) return (
@@ -223,10 +225,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm">Hola, <strong>{usuario.nombre}</strong></span>
-          <button
-            onClick={handleLogout}
-            className="bg-amber-900 hover:bg-amber-800 text-white text-sm px-3 py-1 rounded-lg transition"
-          >
+          <button onClick={handleLogout} className="bg-amber-900 hover:bg-amber-800 text-white text-sm px-3 py-1 rounded-lg transition">
             Salir
           </button>
         </div>
@@ -279,13 +278,10 @@ export default function DashboardPage() {
                   { key: 'anio', label: 'Año' },
                   { key: 'personalizado', label: 'Personalizado' },
                 ] as { key: Filtro, label: string }[]).map(f => (
-                  <button
-                    key={f.key}
-                    onClick={() => cambiarFiltro(f.key)}
+                  <button key={f.key} onClick={() => { setFiltro(f.key); setOffset(0) }}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition ${
                       filtro === f.key ? 'bg-amber-600 text-white' : 'bg-amber-50 text-gray-600 hover:bg-amber-100'
-                    }`}
-                  >
+                    }`}>
                     {f.label}
                   </button>
                 ))}
@@ -295,46 +291,27 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2">
                     <label className="text-sm text-gray-600">Desde</label>
-                    <input
-                      type="date"
-                      value={desdeCustom}
-                      onChange={(e) => setDesdeCustom(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    />
+                    <input type="date" value={desdeCustom} onChange={(e) => setDesdeCustom(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400" />
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="text-sm text-gray-600">Hasta</label>
-                    <input
-                      type="date"
-                      value={hastaCustom}
-                      onChange={(e) => setHastaCustom(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    />
+                    <input type="date" value={hastaCustom} onChange={(e) => setHastaCustom(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400" />
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setOffset(offset - 1)}
-                    className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition"
-                  >
-                    ←
-                  </button>
-                  <span className="text-sm font-semibold text-amber-800 text-center">
-                    {rango.label}
-                  </span>
-                  <button
-                    onClick={() => setOffset(Math.min(offset + 1, 0))}
-                    disabled={offset === 0}
-                    className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition disabled:opacity-30"
-                  >
-                    →
-                  </button>
+                  <button onClick={() => setOffset(offset - 1)}
+                    className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition">←</button>
+                  <span className="text-sm font-semibold text-amber-800 text-center">{rango.label}</span>
+                  <button onClick={() => setOffset(Math.min(offset + 1, 0))} disabled={offset === 0}
+                    className="text-amber-700 hover:bg-amber-50 px-3 py-1 rounded-lg font-bold text-lg transition disabled:opacity-30">→</button>
                 </div>
               )}
             </div>
 
-            {/* KPIs */}
+            {/* KPI */}
             <div className="grid grid-cols-2 gap-4 mb-6">
               <div className="bg-white rounded-xl shadow px-5 py-4 text-center">
                 <p className="text-sm text-gray-500 mb-1">Total vendido</p>
@@ -344,7 +321,7 @@ export default function DashboardPage() {
               </div>
               <div className="bg-white rounded-xl shadow px-5 py-4 text-center">
                 <p className="text-sm text-gray-500 mb-1">Total ventas</p>
-                <p className="text-2xl font-bold text-amber-700">{totalTickets}</p>
+                <p className="text-2xl font-bold text-amber-700">{ventas.length}</p>
               </div>
             </div>
 
@@ -359,28 +336,39 @@ export default function DashboardPage() {
               <>
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora (cobrado por)</h3>
-                  <GraficoBarras
-                    datos={datos}
-                    dataKey="ventas"
+                  <GraficoBarras datos={cobrador.map(d => ({ nombre: d.nombre, valor: d.ventas }))}
+                    dataKey="valor"
                     formatear={(v) => `$${v.toLocaleString('es-AR')}`}
-                    formatearEscala={(v) => `$${v.toLocaleString('es-AR')}`}
-                  />
+                    formatearEscala={(v) => `$${v.toLocaleString('es-AR')}`} />
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">🙋 Ranking de atención al cliente</h3>
-                  <GraficoBarras
-                    datos={datosAtencion}
-                    dataKey="atenciones"
+                  <GraficoBarras datos={atendedor.map(d => ({ nombre: d.nombre, valor: d.cantidad }))}
+                    dataKey="valor"
                     formatear={(v) => `${v} ventas`}
-                    formatearEscala={(v) => `${v}`}
-                  />
+                    formatearEscala={(v) => `${v}`} />
+                </div>
+
+                <div className="bg-white rounded-xl shadow p-5 mb-6">
+                  <h3 className="font-bold text-gray-800 mb-4">💳 Medios de pago</h3>
+                  <GraficoBarras datos={medioPago.map(d => ({ nombre: d.medio, valor: d.total, cant: d.cantidad }))}
+                    dataKey="valor"
+                    formatear={(v) => `$${v.toLocaleString('es-AR')}`}
+                    formatearEscala={(v) => `$${v.toLocaleString('es-AR')}`} />
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {medioPago.map(d => (
+                      <span key={d.medio} className="text-xs text-gray-500">
+                        {d.medio}: <strong>{d.cantidad} ventas</strong>
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-5">
                   <h3 className="font-bold text-gray-800 mb-4">🏆 Ranking combinado</h3>
                   <div className="space-y-3">
-                    {datos.map((v, i) => (
+                    {cobrador.map((v, i) => (
                       <div key={v.nombre} className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
                           <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
@@ -388,7 +376,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-amber-700">${v.ventas.toLocaleString('es-AR')}</p>
-                          <p className="text-xs text-gray-500">{v.tickets} ventas</p>
+                          <p className="text-xs text-gray-500">{v.cantidad} ventas</p>
                         </div>
                       </div>
                     ))}

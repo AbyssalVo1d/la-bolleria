@@ -323,8 +323,9 @@ export default function StockPage() {
                   const insumo = (m as any).insumos
                   const usuarioMov = (m as any).usuarios
                   const fecha = new Date(m.creado_en)
-                  const fechaStr = fecha.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                  const horaStr = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+                  const TZ = 'America/Argentina/Buenos_Aires'
+                  const fechaStr = fecha.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
+                  const horaStr = fecha.toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
 
                   return (
                     <div key={m.id} className={`bg-white rounded-xl shadow px-5 py-4 border-l-4 ${
