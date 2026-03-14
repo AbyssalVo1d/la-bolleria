@@ -318,7 +318,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {usuario.rol === 'admin' && (
+        {(usuario.rol === 'admin' || usuario.rol === 'ventas') && (
           <>
             {/* Selector de período */}
             <div className="bg-white rounded-xl shadow px-5 py-4 mb-6">
