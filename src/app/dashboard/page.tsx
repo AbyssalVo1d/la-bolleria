@@ -388,14 +388,6 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora (cobrado por)</h3>
-                  <GraficoBarras datos={cobrador.map(d => ({ nombre: d.nombre, valor: d.ventas }))}
-                    dataKey="valor"
-                    formatear={(v) => `$${v.toLocaleString('es-AR')}`}
-                    formatearEscala={(v) => `$${v.toLocaleString('es-AR')}`} />
-                </div>
-
-                <div className="bg-white rounded-xl shadow p-5 mb-6">
                   <h3 className="font-bold text-gray-800 mb-4">🙋 Ranking de atención al cliente</h3>
                   <GraficoBarras datos={atendedor.map(d => ({ nombre: d.nombre, valor: d.cantidad }))}
                     dataKey="valor"
@@ -404,26 +396,16 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-white rounded-xl shadow p-5 mb-6">
-                  <h3 className="font-bold text-gray-800 mb-4">💳 Medios de pago</h3>
-                  <GraficoPie datos={medioPago} />
+                  <h3 className="font-bold text-gray-800 mb-4">💵 Ventas por vendedora (cobrado por)</h3>
+                  <GraficoBarras datos={cobrador.map(d => ({ nombre: d.nombre, valor: d.ventas }))}
+                    dataKey="valor"
+                    formatear={(v) => `$${v.toLocaleString('es-AR')}`}
+                    formatearEscala={(v) => `$${v.toLocaleString('es-AR')}`} />
                 </div>
 
-                <div className="bg-white rounded-xl shadow p-5">
-                  <h3 className="font-bold text-gray-800 mb-4">🏆 Ranking combinado</h3>
-                  <div className="space-y-3">
-                    {cobrador.map((v, i) => (
-                      <div key={v.nombre} className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</span>
-                          <span className="font-medium text-gray-800">{v.nombre}</span>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-amber-700">${v.ventas.toLocaleString('es-AR')}</p>
-                          <p className="text-xs text-gray-500">{v.cantidad} ventas</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="bg-white rounded-xl shadow p-5 mb-6">
+                  <h3 className="font-bold text-gray-800 mb-4">💳 Medios de pago</h3>
+                  <GraficoPie datos={medioPago} />
                 </div>
               </>
             )}
