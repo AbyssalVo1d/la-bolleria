@@ -174,7 +174,7 @@ function GraficoBarras({ datos, dataKey, formatear, formatearEscala }: {
 export default function DashboardPage() {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [ventas, setVentas] = useState<any[]>([])
-  const [filtro, setFiltro] = useState<Filtro>('mes')
+  const [filtro, setFiltro] = useState<Filtro>('dia')
   const [offset, setOffset] = useState(0)
   const [desdeCustom, setDesdeCustom] = useState('')
   const [hastaCustom, setHastaCustom] = useState('')
