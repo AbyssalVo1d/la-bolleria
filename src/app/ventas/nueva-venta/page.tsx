@@ -13,6 +13,10 @@ const MEDIOS_PAGO = [
   { value: 'transferencia', label: '📲 Transferencia' },
 ]
 
+const MEDIO_ES: Record<string, string> = {
+  efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia',
+}
+
 interface Producto {
   id: number
   nombre: string
@@ -48,6 +52,103 @@ function fmtMonto(s: string): string {
 
 function normalizar(s: string) {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+async function buildPDF(v: any, items: any[]) {
+  const { jsPDF } = await import('jspdf')
+  const PW = 58
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [PW, 260] })
+  const cx = PW / 2
+  let y = 6
+
+  doc.setTextColor(0, 0, 0)
+  const line = (text: string, size = 11, bold = true, align: 'left' | 'center' | 'right' = 'center') => {
+    doc.setFontSize(size)
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    doc.setTextColor(0, 0, 0)
+    const x = align === 'center' ? cx : align === 'right' ? PW - 3 : 3
+    doc.text(text, x, y, { align })
+    y += size * 0.5 + 2
+  }
+  const sep = () => {
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.5)
+    doc.line(3, y, PW - 3, y)
+    y += 4
+  }
+
+  // Header
+  doc.setTextColor(146, 64, 14)
+  doc.setFontSize(15)
+  doc.setFont('helvetica', 'bold')
+  doc.text('LA BOLLERÍA', cx, y, { align: 'center' })
+  y += 9
+  doc.setTextColor(0, 0, 0)
+  line('Belgrano 320, Corrientes Capital', 9, false)
+  line('WhatsApp: 3794-540083', 9, false)
+  y += 1
+  sep()
+  line(`COMPROBANTE DE PAGO Nº ${v.numero_comprobante || '------'}`, 11, true)
+  sep()
+
+  const dt = new Date(v.creado_en)
+  const fecha = dt.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
+  const hora = dt.toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+  line(`Fecha: ${fecha}   Hora: ${hora}`, 10, false)
+  line('Cliente: General', 10, false)
+  y += 1
+  sep()
+
+  // Encabezado tabla
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
+  doc.text('Producto', 3, y)
+  doc.text('Cant', 36, y, { align: 'right' })
+  doc.text('Subtotal', PW - 3, y, { align: 'right' })
+  y += 6
+  sep()
+
+  // Items
+  if (items.length > 0) {
+    items.forEach((it: any) => {
+      const nombre = it.productos?.nombre || it.productoNombre || '—'
+      const unidad = it.productos?.unidad || it.unidad || 'u'
+      const cant = it.cantidad != null && it.cantidad !== ''
+        ? `${Number(String(it.cantidad).replace(',', '.')).toLocaleString('es-AR')} ${unidad}`
+        : `1 ${unidad}`
+      const monto = `$${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      const wrapped = doc.splitTextToSize(nombre, 30)
+      doc.text(wrapped, 3, y)
+      doc.text(cant, 36, y + (wrapped.length - 1) * 5, { align: 'right' })
+      doc.text(monto, PW - 3, y + (wrapped.length - 1) * 5, { align: 'right' })
+      y += wrapped.length * 5 + 3
+    })
+  } else {
+    line('(sin detalle de productos)', 10, false)
+  }
+
+  sep()
+  const total = `$${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(0, 0, 0)
+  doc.text('Subtotal:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 6
+  doc.text('Descuento (0%):', 3, y); doc.text('-$0,00', PW - 3, y, { align: 'right' }); y += 6
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.text('TOTAL:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 7
+  sep()
+  line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 10, false)
+  y += 2
+  line('¡Que lo disfrute!', 11, true)
+  y += 3
+  line('DOCUMENTO NO VÁLIDO COMO FACTURA', 8, false)
+
+  return doc
 }
 
 function BuscadorProducto({
@@ -137,6 +238,8 @@ export default function NuevaVentaPage() {
   const [vendedoras, setVendedoras] = useState<any[]>([])
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [ventaGuardada, setVentaGuardada] = useState<any>(null)
+  const [itemsGuardados, setItemsGuardados] = useState<any[]>([])
   const router = useRouter()
   const supabase = createClient()
 
@@ -246,13 +349,91 @@ export default function NuevaVentaPage() {
       return
     }
 
-    router.push('/ventas')
+    // Preparar items para el PDF (enriquecer con nombre y unidad del producto)
+    const itemsConDatos = itemsValidos.map(it => {
+      const prod = productoById(it.productoId)
+      return {
+        productoNombre: it.productoNombre,
+        cantidad: it.cantidad,
+        monto: parsNum(it.monto),
+        productos: { nombre: it.productoNombre, unidad: prod?.unidad || 'u' },
+      }
+    })
+
+    setVentaGuardada(venta)
+    setItemsGuardados(itemsConDatos)
+    setGuardando(false)
+  }
+
+  const nuevaVenta = () => {
+    setVentaGuardada(null)
+    setItemsGuardados([])
+    setItems([{ productoId: '', productoNombre: '', cantidad: '', monto: '' }])
+    setMedioPago('efectivo')
+    setTurno(turnoSegunHora())
+    setError('')
+  }
+
+  // Pantalla de confirmación
+  if (ventaGuardada) {
+    return (
+      <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center space-y-5">
+          <div className="text-5xl">✅</div>
+          <div>
+            <p className="text-xl font-bold text-gray-800">¡Venta registrada!</p>
+            {ventaGuardada.numero_comprobante && (
+              <p className="text-sm text-gray-500 mt-1 font-mono">Comprobante Nº {ventaGuardada.numero_comprobante}</p>
+            )}
+            <p className="text-2xl font-bold text-blue-700 mt-2">
+              ${Number(ventaGuardada.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+            </p>
+            <p className="text-sm text-gray-500">{MEDIO_ES[ventaGuardada.medio_pago] || ventaGuardada.medio_pago}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={async () => {
+                const doc = await buildPDF(ventaGuardada, itemsGuardados)
+                doc.autoPrint()
+                window.open(doc.output('bloburl'), '_blank')
+              }}
+              className="flex flex-col items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition"
+            >
+              <span className="text-2xl">🖨️</span>
+              <span className="text-sm">Imprimir</span>
+            </button>
+            <button
+              onClick={async () => {
+                const doc = await buildPDF(ventaGuardada, itemsGuardados)
+                doc.save(`comprobante-${ventaGuardada.numero_comprobante || ventaGuardada.id}.pdf`)
+              }}
+              className="flex flex-col items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition"
+            >
+              <span className="text-2xl">💾</span>
+              <span className="text-sm">Guardar PDF</span>
+            </button>
+          </div>
+
+          <button
+            onClick={nuevaVenta}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition"
+          >
+            + Registrar otra venta
+          </button>
+
+          <button onClick={() => window.close()} className="text-sm text-gray-400 hover:text-gray-600">
+            Cerrar pestaña
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-amber-50">
       <header className="bg-blue-700 text-white px-6 py-4 flex items-center gap-3 shadow">
-        <button onClick={() => router.push('/ventas')} className="text-blue-200 hover:text-white text-sm">← Volver</button>
+        <button onClick={() => window.close()} className="text-blue-200 hover:text-white text-sm">✕ Cerrar</button>
         <span className="text-xl font-bold">🛒 Nueva venta</span>
       </header>
 
@@ -381,7 +562,7 @@ export default function NuevaVentaPage() {
         {error && <p className="text-red-500 text-sm px-1">{error}</p>}
 
         <button onClick={guardar} disabled={guardando}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50">
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 mb-6">
           {guardando ? 'Guardando...' : `Guardar venta · $${total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`}
         </button>
 

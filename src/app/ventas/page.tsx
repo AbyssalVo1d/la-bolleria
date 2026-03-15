@@ -97,87 +97,110 @@ export default function VentasPage() {
     setLoading(false)
   }
 
-  const imprimirComprobante = async (v: any, items: any[]) => {
+  const buildPDF = async (v: any, items: any[]) => {
     const { jsPDF } = await import('jspdf')
     const PW = 58
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [PW, 200] })
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [PW, 260] })
     const cx = PW / 2
-    let y = 5
+    let y = 6
 
-    const line = (text: string, size = 8, bold = false, align: 'left' | 'center' | 'right' = 'center') => {
+    doc.setTextColor(0, 0, 0)
+    const line = (text: string, size = 11, bold = true, align: 'left' | 'center' | 'right' = 'center') => {
       doc.setFontSize(size)
       doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setTextColor(0, 0, 0)
       const x = align === 'center' ? cx : align === 'right' ? PW - 3 : 3
       doc.text(text, x, y, { align })
-      y += size * 0.45 + 1.2
+      y += size * 0.5 + 2
     }
-
-    const sep = () => { doc.setDrawColor(150); doc.line(3, y, PW - 3, y); y += 3 }
+    const sep = () => {
+      doc.setDrawColor(0, 0, 0)
+      doc.setLineWidth(0.5)
+      doc.line(3, y, PW - 3, y)
+      y += 4
+    }
 
     // Header
     doc.setTextColor(146, 64, 14)
-    line('LA BOLLERÍA', 13, true)
-    doc.setTextColor(60, 60, 60)
-    line('Belgrano 320, Corrientes Capital', 7)
-    line('WhatsApp: 3794-540083', 7)
-    y += 2
+    doc.setFontSize(15)
+    doc.setFont('helvetica', 'bold')
+    doc.text('LA BOLLERÍA', cx, y, { align: 'center' })
+    y += 9
+    doc.setTextColor(0, 0, 0)
+    line('Belgrano 320, Corrientes Capital', 9, false)
+    line('WhatsApp: 3794-540083', 9, false)
+    y += 1
     sep()
-    line(`COMPROBANTE DE PAGO Nº ${v.numero_comprobante || '------'}`, 8, true)
+    line(`COMPROBANTE DE PAGO Nº ${v.numero_comprobante || '------'}`, 11, true)
     sep()
 
     const dt = new Date(v.creado_en)
     const fecha = dt.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
     const hora = dt.toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
-    line(`Fecha: ${fecha}   Hora: ${hora}`, 7)
-    line('Cliente: General', 7)
+    line(`Fecha: ${fecha}   Hora: ${hora}`, 10, false)
+    line('Cliente: General', 10, false)
     y += 1
     sep()
 
     // Encabezado tabla
-    doc.setFontSize(7)
+    doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
     doc.text('Producto', 3, y)
-    doc.text('Cant  Subtotal', PW - 3, y, { align: 'right' })
-    y += 5
+    doc.text('Cant', 36, y, { align: 'right' })
+    doc.text('Subtotal', PW - 3, y, { align: 'right' })
+    y += 6
     sep()
 
-    // Items: nombre en línea propia, luego cant + monto en línea indentada
-    doc.setFont('helvetica', 'normal')
+    // Items
     if (items.length > 0) {
       items.forEach((it: any) => {
         const nombre = it.productos?.nombre || '—'
-        const cant = it.cantidad != null ? `${Number(it.cantidad).toLocaleString('es-AR')} ${it.productos?.unidad || 'u'}` : `1 ${it.productos?.unidad || 'u'}`
+        const cant = it.cantidad != null
+          ? `${Number(it.cantidad).toLocaleString('es-AR')} ${it.productos?.unidad || 'u'}`
+          : `1 ${it.productos?.unidad || 'u'}`
         const monto = `$${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
-        doc.setFontSize(7)
-        // Nombre en línea completa, truncado si necesario
-        const wrapped = doc.splitTextToSize(nombre, PW - 6)
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        const wrapped = doc.splitTextToSize(nombre, 30)
         doc.text(wrapped, 3, y)
-        y += wrapped.length * 4 + 1
-        // Cant y monto en línea siguiente, derecha
-        doc.setTextColor(100, 100, 100)
-        doc.text(`${cant}  ${monto}`, PW - 3, y, { align: 'right' })
-        doc.setTextColor(60, 60, 60)
-        y += 5
+        doc.text(cant, 36, y + (wrapped.length - 1) * 5, { align: 'right' })
+        doc.text(monto, PW - 3, y + (wrapped.length - 1) * 5, { align: 'right' })
+        y += wrapped.length * 5 + 3
       })
     } else {
-      line('(sin detalle de productos)', 7)
+      line('(sin detalle de productos)', 10, false)
     }
 
     sep()
     const total = `$${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
-    doc.setFontSize(8)
+    doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
-    doc.text('Subtotal:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 5
-    doc.text('Descuento (0%):', 3, y); doc.text('-$0,00', PW - 3, y, { align: 'right' }); y += 5
+    doc.setTextColor(0, 0, 0)
+    doc.text('Subtotal:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 6
+    doc.text('Descuento (0%):', 3, y); doc.text('-$0,00', PW - 3, y, { align: 'right' }); y += 6
     doc.setFont('helvetica', 'bold')
-    doc.text('TOTAL:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 5
+    doc.setFontSize(12)
+    doc.text('TOTAL:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 7
     sep()
-    line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 7)
+    line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 10, false)
     y += 2
-    line('¡Que lo disfrute!', 8, true)
+    line('¡Que lo disfrute!', 11, true)
     y += 3
-    line('DOCUMENTO NO VÁLIDO COMO FACTURA', 6)
+    line('DOCUMENTO NO VÁLIDO COMO FACTURA', 8, false)
 
+    return doc
+  }
+
+  const imprimirComprobante = async (v: any, items: any[]) => {
+    const doc = await buildPDF(v, items)
+    doc.autoPrint()
+    window.open(doc.output('bloburl'), '_blank')
+  }
+
+  const guardarComprobante = async (v: any, items: any[]) => {
+    const doc = await buildPDF(v, items)
     doc.save(`comprobante-${v.numero_comprobante || v.id}.pdf`)
   }
 
@@ -198,7 +221,7 @@ export default function VentasPage() {
           <button onClick={() => router.push('/dashboard')} className="text-blue-200 hover:text-white text-sm">← Volver</button>
           <span className="text-xl font-bold">💰 Ventas</span>
         </div>
-        <button onClick={() => router.push('/ventas/nueva-venta')}
+        <button onClick={() => window.open('/ventas/nueva-venta', '_blank')}
           className="bg-white text-blue-700 font-semibold px-4 py-2 rounded-lg text-sm hover:bg-blue-50 transition">
           + Nueva venta
         </button>
@@ -318,13 +341,18 @@ export default function VentasPage() {
                       <p className="text-lg font-bold text-blue-700">
                         ${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
                       </p>
-                      <button
-                        onClick={() => imprimirComprobante(v, items)}
-                        className="text-xs text-gray-400 hover:text-blue-600 transition"
-                        title="Descargar comprobante PDF"
-                      >
-                        🖨️
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => imprimirComprobante(v, items)}
+                          className="text-xs text-gray-500 hover:text-blue-600 transition px-1.5 py-0.5 rounded border border-gray-200 hover:border-blue-300"
+                          title="Imprimir comprobante"
+                        >🖨️</button>
+                        <button
+                          onClick={() => guardarComprobante(v, items)}
+                          className="text-xs text-gray-500 hover:text-green-600 transition px-1.5 py-0.5 rounded border border-gray-200 hover:border-green-300"
+                          title="Guardar PDF"
+                        >💾</button>
+                      </div>
                     </div>
                   </div>
                 </div>
