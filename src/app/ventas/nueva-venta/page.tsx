@@ -396,20 +396,20 @@ export default function NuevaVentaPage() {
                 doc.autoPrint()
                 window.open(doc.output('bloburl'), '_blank')
               }}
-              className="flex flex-col items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition"
+              className="flex flex-col items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-5 px-6 rounded-xl transition"
             >
-              <span className="text-2xl">🖨️</span>
-              <span className="text-sm">Imprimir</span>
+              <span className="text-3xl">🖨️</span>
+              <span className="text-base">Imprimir</span>
             </button>
             <button
               onClick={async () => {
                 const doc = await buildPDF(ventaGuardada, itemsGuardados)
                 doc.save(`comprobante-${ventaGuardada.numero_comprobante || ventaGuardada.id}.pdf`)
               }}
-              className="flex flex-col items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition"
+              className="flex flex-col items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-5 px-6 rounded-xl transition"
             >
-              <span className="text-2xl">💾</span>
-              <span className="text-sm">Guardar PDF</span>
+              <span className="text-3xl">💾</span>
+              <span className="text-base">Guardar PDF</span>
             </button>
           </div>
 

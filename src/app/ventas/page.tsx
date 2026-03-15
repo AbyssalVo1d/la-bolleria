@@ -339,15 +339,15 @@ export default function VentasPage() {
                       <p className="text-lg font-bold text-blue-700">
                         ${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
                       </p>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2 mt-1">
                         <button
                           onClick={() => imprimirComprobante(v, items)}
-                          className="text-xs text-gray-500 hover:text-blue-600 transition px-1.5 py-0.5 rounded border border-gray-200 hover:border-blue-300"
+                          className="text-sm font-medium text-blue-600 hover:bg-blue-50 transition px-5 py-3 rounded-lg border border-blue-200 hover:border-blue-400"
                           title="Imprimir comprobante"
                         >🖨️</button>
                         <button
                           onClick={() => guardarComprobante(v, items)}
-                          className="text-xs text-gray-500 hover:text-green-600 transition px-1.5 py-0.5 rounded border border-gray-200 hover:border-green-300"
+                          className="text-sm font-medium text-green-600 hover:bg-green-50 transition px-5 py-3 rounded-lg border border-green-200 hover:border-green-400"
                           title="Guardar PDF"
                         >💾</button>
                       </div>
