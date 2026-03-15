@@ -143,16 +143,15 @@ export default function VentasPage() {
     sep()
 
     // Encabezado tabla
-    doc.setFontSize(10)
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
     doc.text('Producto', 3, y)
-    doc.text('Cant', 36, y, { align: 'right' })
-    doc.text('Subtotal', PW - 3, y, { align: 'right' })
-    y += 6
+    doc.text('Cant  Subtotal', PW - 3, y, { align: 'right' })
+    y += 5
     sep()
 
-    // Items
+    // Items: nombre en línea propia, cant+subtotal en línea siguiente (derecha)
     if (items.length > 0) {
       items.forEach((it: any) => {
         const nombre = it.productos?.nombre || '—'
@@ -160,14 +159,17 @@ export default function VentasPage() {
           ? `${Number(it.cantidad).toLocaleString('es-AR')} ${it.productos?.unidad || 'u'}`
           : `1 ${it.productos?.unidad || 'u'}`
         const monto = `$${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
-        doc.setFontSize(10)
+        // Nombre — línea completa
+        doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        const wrapped = doc.splitTextToSize(nombre, 30)
+        const wrapped = doc.splitTextToSize(nombre, PW - 6)
         doc.text(wrapped, 3, y)
-        doc.text(cant, 36, y + (wrapped.length - 1) * 5, { align: 'right' })
-        doc.text(monto, PW - 3, y + (wrapped.length - 1) * 5, { align: 'right' })
-        y += wrapped.length * 5 + 3
+        y += wrapped.length * 4.5
+        // Cant + monto en siguiente línea, juntos a la derecha
+        doc.setFont('helvetica', 'normal')
+        doc.text(`${cant}  ${monto}`, PW - 3, y, { align: 'right' })
+        y += 6
       })
     } else {
       line('(sin detalle de productos)', 10, false)
