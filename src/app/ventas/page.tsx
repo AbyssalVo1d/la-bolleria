@@ -114,13 +114,9 @@ export default function VentasPage() {
 
     const sep = () => { doc.setDrawColor(150); doc.line(3, y, PW - 3, y); y += 3 }
 
-    // Header con texto estilizado (sin imagen)
-    doc.setFontSize(28)
-    doc.setFont('helvetica', 'bold')
+    // Header
     doc.setTextColor(146, 64, 14)
-    doc.text('B', cx, y + 2, { align: 'center' })
-    y += 12
-    line('LA BOLLERÍA', 11, true)
+    line('LA BOLLERÍA', 13, true)
     doc.setTextColor(60, 60, 60)
     line('Belgrano 320, Corrientes Capital', 7)
     line('WhatsApp: 3794-540083', 7)
