@@ -120,12 +120,7 @@ export default function VentasPage() {
       y += 4
     }
 
-    // Header: logo sobre fondo negro + texto debajo
-    const logoW = 44, logoH = 22, logoX = (PW - logoW) / 2
-    doc.setFillColor(0, 0, 0)
-    doc.rect(logoX, y, logoW, logoH, 'F')
-    doc.addImage(LOGO_B64, 'JPEG', logoX, y, logoW, logoH)
-    y += logoH + 5
+    // Header: texto LA BOLLERÍA en negro puro y negrita
     doc.setTextColor(0, 0, 0)
     doc.setFontSize(15)
     doc.setFont('helvetica', 'bold')
