@@ -136,7 +136,8 @@ export default function VentasPage() {
     const dt = new Date(v.creado_en)
     const fecha = dt.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
     const hora = dt.toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
-    line(`Fecha: ${fecha}   Hora: ${hora}`, 10, true)
+    line(`Fecha: ${fecha}`, 10, true)
+    line(`Hora: ${hora}`, 10, true)
     line('Cliente: General', 10, true)
     y += 1
     sep()
