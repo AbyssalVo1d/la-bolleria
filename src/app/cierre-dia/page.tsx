@@ -9,6 +9,14 @@ const TZ = 'America/Argentina/Buenos_Aires'
 function hoyAR() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 }
+
+function turnoActual(): string {
+  const h = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  if (h >= 8 && h < 14) return 'mañana'
+  if (h >= 14 && h <= 21) return 'tarde'
+  return ''
+}
+
 function fmtFecha(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
@@ -16,7 +24,8 @@ function fmtFecha(iso: string) {
 
 export default function CierreDiaPage() {
   const [fecha, setFecha] = useState(hoyAR())
-  const [datos, setDatos] = useState<any>(null)
+  const [turno, setTurno] = useState(turnoActual())
+  const [todosLosDatos, setTodosLosDatos] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [generandoPDF, setGenerandoPDF] = useState(false)
   const router = useRouter()
@@ -69,31 +78,6 @@ export default function CierreDiaPage() {
       atendedor_nombre: uMap[v.atendido_por] || '—',
     }))
 
-    const totalVentas = ventas.reduce((s: number, v: any) => s + Number(v.monto), 0)
-
-    // Ranking cobradoras
-    const rankCobro: Record<string, { nombre: string, total: number, cant: number }> = {}
-    ventas.forEach((v: any) => {
-      const n = v.cobrador_nombre
-      if (!rankCobro[n]) rankCobro[n] = { nombre: n, total: 0, cant: 0 }
-      rankCobro[n].total += Number(v.monto)
-      rankCobro[n].cant += 1
-    })
-
-    // Ranking atención
-    const rankAtencion: Record<string, { nombre: string, cant: number }> = {}
-    ventas.forEach((v: any) => {
-      const n = v.atendedor_nombre
-      if (!rankAtencion[n]) rankAtencion[n] = { nombre: n, cant: 0 }
-      rankAtencion[n].cant += 1
-    })
-
-    // Medios de pago
-    const medios: Record<string, number> = {}
-    ventas.forEach((v: any) => {
-      medios[v.medio_pago] = (medios[v.medio_pago] || 0) + Number(v.monto)
-    })
-
     // Partes producción del día (producido)
     const { data: partesProducidos } = await supabase
       .from('partes_produccion')
@@ -110,18 +94,50 @@ export default function CierreDiaPage() {
       .eq('tipo', 'sobrante')
       .order('creado_en', { ascending: true })
 
-    setDatos({
+    setTodosLosDatos({
       ventas,
-      totalVentas,
-      cantVentas: ventas.length,
-      rankCobro: Object.values(rankCobro).sort((a, b) => b.total - a.total),
-      rankAtencion: Object.values(rankAtencion).sort((a, b) => b.cant - a.cant),
-      medios,
       partesProducidos: partesProducidos || [],
       partesSobrantes: partesSobrantes || [],
     })
     setLoading(false)
   }
+
+  // Filtro client-side por turno
+  const ventasFiltradas = todosLosDatos
+    ? turno ? todosLosDatos.ventas.filter((v: any) => v.turno === turno) : todosLosDatos.ventas
+    : []
+
+  const datos = todosLosDatos ? (() => {
+    const ventas = ventasFiltradas
+    const totalVentas = ventas.reduce((s: number, v: any) => s + Number(v.monto), 0)
+    const rankCobro: Record<string, { nombre: string, total: number, cant: number }> = {}
+    ventas.forEach((v: any) => {
+      const n = v.cobrador_nombre
+      if (!rankCobro[n]) rankCobro[n] = { nombre: n, total: 0, cant: 0 }
+      rankCobro[n].total += Number(v.monto)
+      rankCobro[n].cant += 1
+    })
+    const rankAtencion: Record<string, { nombre: string, cant: number }> = {}
+    ventas.forEach((v: any) => {
+      const n = v.atendedor_nombre
+      if (!rankAtencion[n]) rankAtencion[n] = { nombre: n, cant: 0 }
+      rankAtencion[n].cant += 1
+    })
+    const medios: Record<string, number> = {}
+    ventas.forEach((v: any) => {
+      medios[v.medio_pago] = (medios[v.medio_pago] || 0) + Number(v.monto)
+    })
+    return {
+      ventas,
+      totalVentas,
+      cantVentas: ventas.length,
+      rankCobro: Object.values(rankCobro).sort((a: any, b: any) => b.total - a.total),
+      rankAtencion: Object.values(rankAtencion).sort((a: any, b: any) => b.cant - a.cant),
+      medios,
+      partesProducidos: todosLosDatos.partesProducidos,
+      partesSobrantes: todosLosDatos.partesSobrantes,
+    }
+  })() : null
 
   const descargarPDF = async () => {
     if (!datos) return
@@ -182,7 +198,7 @@ export default function CierreDiaPage() {
     doc.text('La Bollería', margin, 11)
     doc.setFontSize(11)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Cierre del día — ${fmtFecha(fecha)}`, margin, 19)
+    doc.text(`Cierre del día — ${fmtFecha(fecha)}${turno ? ` · ${turno}` : ''}`, margin, 19)
     doc.text(`Generado: ${new Date().toLocaleString('es-AR', { timeZone: TZ })}`, colR, 19, { align: 'right' })
     y = 35
 
@@ -275,20 +291,37 @@ export default function CierreDiaPage() {
 
       <main className="p-6 max-w-2xl mx-auto space-y-4">
 
-        {/* Selector de fecha */}
-        <div className="bg-white rounded-xl shadow px-5 py-4 flex items-center gap-3">
-          <label className="text-sm font-medium text-gray-700">Fecha:</label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={e => setFecha(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-          />
-          {fecha !== hoyAR() && (
-            <button onClick={() => setFecha(hoyAR())} className="text-xs text-amber-600 hover:underline">
-              Hoy
-            </button>
-          )}
+        {/* Selector de fecha y turno */}
+        <div className="bg-white rounded-xl shadow px-5 py-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700">Fecha:</label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={e => setFecha(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            {fecha !== hoyAR() && (
+              <button onClick={() => setFecha(hoyAR())} className="text-xs text-amber-600 hover:underline">
+                Hoy
+              </button>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Turno</label>
+            <div className="flex gap-2">
+              {[{ v: '', l: 'Todos' }, { v: 'mañana', l: '🌅 Mañana' }, { v: 'tarde', l: '🌆 Tarde' }].map(t => (
+                <button key={t.v} onClick={() => setTurno(t.v)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+                    turno === t.v
+                      ? 'bg-amber-600 border-amber-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-600 hover:border-amber-400'
+                  }`}>
+                  {t.l}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {loading ? (

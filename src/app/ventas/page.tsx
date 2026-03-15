@@ -10,6 +10,13 @@ function hoyAR() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
 }
 
+function turnoActual(): string {
+  const h = parseInt(new Date().toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }))
+  if (h >= 8 && h < 14) return 'mañana'
+  if (h >= 14 && h <= 21) return 'tarde'
+  return ''
+}
+
 function formatFechaHora(iso: string) {
   return new Date(iso).toLocaleString('es-AR', {
     timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric',
@@ -26,9 +33,11 @@ const MEDIO_LABEL: Record<string, string> = {
 
 export default function VentasPage() {
   const [todasLasVentas, setTodasLasVentas] = useState<any[]>([])
+  const [itemsPorVenta, setItemsPorVenta] = useState<Record<number, any[]>>({})
   const [vendedoras, setVendedoras] = useState<any[]>([])
   const [filtroVendedora, setFiltroVendedora] = useState('')
   const [filtroFecha, setFiltroFecha] = useState(hoyAR())
+  const [filtroTurno, setFiltroTurno] = useState(turnoActual())
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
@@ -53,7 +62,6 @@ export default function VentasPage() {
 
   const cargarVentas = async (fecha: string) => {
     setLoading(true)
-    // Convertir fecha AR a rango UTC (AR = UTC-3)
     const startUTC = `${fecha}T03:00:00.000Z`
     const nextDay = new Date(fecha)
     nextDay.setDate(nextDay.getDate() + 1)
@@ -76,16 +84,32 @@ export default function VentasPage() {
         cobrador_nombre: map[v.cobrado_por] || '—',
         atendedor_nombre: map[v.atendido_por] || '—',
       })))
+
+      // Cargar items de todas las ventas
+      const ventaIds = rows.map((v: any) => v.id)
+      const { data: items } = await supabase
+        .from('venta_items')
+        .select('*, productos(nombre, unidad)')
+        .in('venta_id', ventaIds)
+
+      const mapaItems: Record<number, any[]> = {}
+      ;(items || []).forEach((it: any) => {
+        if (!mapaItems[it.venta_id]) mapaItems[it.venta_id] = []
+        mapaItems[it.venta_id].push(it)
+      })
+      setItemsPorVenta(mapaItems)
     } else {
       setTodasLasVentas([])
+      setItemsPorVenta({})
     }
     setLoading(false)
   }
 
-  // Filtro client-side por vendedora
-  const ventasFiltradas = filtroVendedora
-    ? todasLasVentas.filter(v => v.cobrado_por === filtroVendedora)
-    : todasLasVentas
+  const ventasFiltradas = todasLasVentas.filter(v => {
+    if (filtroVendedora && v.cobrado_por !== filtroVendedora) return false
+    if (filtroTurno && v.turno !== filtroTurno) return false
+    return true
+  })
 
   const totalFiltrado = ventasFiltradas.reduce((s, v) => s + Number(v.monto), 0)
   const esHoy = filtroFecha === hoyAR()
@@ -131,20 +155,36 @@ export default function VentasPage() {
               </select>
             </div>
           </div>
+
+          {/* Turno */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Turno</label>
+            <div className="flex gap-2">
+              {[{ v: '', l: 'Todos' }, { v: 'mañana', l: '🌅 Mañana' }, { v: 'tarde', l: '🌆 Tarde' }].map(t => (
+                <button key={t.v} onClick={() => setFiltroTurno(t.v)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+                    filtroTurno === t.v
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400'
+                  }`}>
+                  {t.l}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {!esHoy && (
-            <button
-              onClick={() => setFiltroFecha(hoyAR())}
-              className="text-xs text-blue-600 hover:underline"
-            >
+            <button onClick={() => setFiltroFecha(hoyAR())} className="text-xs text-blue-600 hover:underline">
               Volver a hoy
             </button>
           )}
         </div>
 
-        {/* Total del día */}
+        {/* Total */}
         <div className="bg-white rounded-xl shadow px-5 py-4 text-center">
           <p className="text-xs text-gray-400 mb-1">
             Total {filtroVendedora ? `— ${vendedoras.find(v => v.id === filtroVendedora)?.nombre}` : 'del día'}
+            {filtroTurno ? ` · ${filtroTurno}` : ''}
             {!esHoy && ` · ${new Date(filtroFecha + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
           </p>
           <p className="text-2xl font-bold text-blue-700">
@@ -165,27 +205,45 @@ export default function VentasPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {ventasFiltradas.map((v) => (
-              <div key={v.id} className="bg-white rounded-xl shadow px-5 py-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs text-gray-400 mb-0.5">{formatFechaHora(v.creado_en)}</p>
-                    <p className="text-sm text-gray-600">
-                      💼 {v.cobrador_nombre}
-                      {v.atendedor_nombre !== v.cobrador_nombre && (
-                        <span className="text-gray-400"> · atendió {v.atendedor_nombre}</span>
+            {ventasFiltradas.map((v) => {
+              const items = itemsPorVenta[v.id] || []
+              return (
+                <div key={v.id} className="bg-white rounded-xl shadow px-5 py-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400 mb-0.5">{formatFechaHora(v.creado_en)}{v.turno ? ` · ${v.turno}` : ''}</p>
+                      <p className="text-sm text-gray-600">
+                        💼 {v.cobrador_nombre}
+                        {v.atendedor_nombre !== v.cobrador_nombre && (
+                          <span className="text-gray-400"> · atendió {v.atendedor_nombre}</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {MEDIO_LABEL[v.medio_pago] || v.medio_pago}
+                      </p>
+                      {items.length > 0 && (
+                        <div className="mt-2 space-y-0.5">
+                          {items.map((it: any) => (
+                            <p key={it.id} className="text-xs text-gray-500 pl-2 border-l-2 border-gray-100">
+                              {it.productos?.nombre || '—'}
+                              {it.cantidad != null && (
+                                <span className="text-gray-400"> × {Number(it.cantidad).toLocaleString('es-AR')} {it.productos?.unidad}</span>
+                              )}
+                              <span className="text-gray-400 ml-1">
+                                · ${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                              </span>
+                            </p>
+                          ))}
+                        </div>
                       )}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {MEDIO_LABEL[v.medio_pago] || v.medio_pago}
+                    </div>
+                    <p className="text-lg font-bold text-blue-700 shrink-0 ml-3">
+                      ${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
                     </p>
                   </div>
-                  <p className="text-lg font-bold text-blue-700 shrink-0 ml-3">
-                    ${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
-                  </p>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>
