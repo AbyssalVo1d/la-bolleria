@@ -257,19 +257,59 @@ export default function CierreDiaPage() {
     })
     saltarLinea()
 
-    // Ranking cobradoras
+    // Helper para dibujar gráfico de barras horizontales en el PDF
+    const COLORES_PDF = [
+      [146, 64, 14], [180, 83, 9], [217, 119, 6],
+      [245, 158, 11], [251, 191, 36], [252, 211, 77],
+    ] as [number, number, number][]
+    const BAR_H = 7
+    const BAR_MAX_W = colR - margin - 50 // ancho máximo de barra
+    const LABEL_X = colR - 45           // donde empieza el valor
+
+    const graficoBarrasPDF = (filas: { nombre: string, valor: number, etiqueta: string }[]) => {
+      if (filas.length === 0) return
+      const maximo = Math.max(...filas.map(f => f.valor), 1)
+      filas.forEach((f, i) => {
+        const pct = f.valor / maximo
+        const barW = Math.max(pct * BAR_MAX_W, pct > 0 ? 1 : 0)
+        const c = COLORES_PDF[i % COLORES_PDF.length]
+        // Nombre
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60, 60, 60)
+        doc.text(f.nombre, margin, y)
+        y += 4.5
+        // Barra
+        doc.setFillColor(c[0], c[1], c[2])
+        doc.rect(margin, y, barW, BAR_H, 'F')
+        // Valor al lado
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(40, 40, 40)
+        doc.text(f.etiqueta, LABEL_X, y + BAR_H * 0.7)
+        y += BAR_H + 4
+      })
+      doc.setTextColor(60, 60, 60)
+    }
+
+    // Ranking quién cobró
     titulo('Ranking — quién cobró', 12)
-    datos.rankCobro.forEach((r: any, i: number) => {
-      lineaDerecha(`  ${i + 1}. ${r.nombre}  (${r.cant} venta${r.cant !== 1 ? 's' : ''}):`,
-        `$${r.total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, 10, 2)
-    })
+    separador()
+    graficoBarrasPDF(datos.rankCobro.map((r: any) => ({
+      nombre: `${r.nombre} (${r.cant} venta${r.cant !== 1 ? 's' : ''})`,
+      valor: r.total,
+      etiqueta: `$${r.total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`,
+    })))
     saltarLinea()
 
-    // Ranking atención
+    // Ranking quién atendió
     titulo('Ranking — quién atendió', 12)
-    datos.rankAtencion.forEach((r: any, i: number) => {
-      linea(`  ${i + 1}. ${r.nombre} — ${r.cant} cliente${r.cant !== 1 ? 's' : ''}`, 10, 2)
-    })
+    separador()
+    graficoBarrasPDF(datos.rankAtencion.map((r: any) => ({
+      nombre: r.nombre,
+      valor: r.cant,
+      etiqueta: `${r.cant} cliente${r.cant !== 1 ? 's' : ''} · $${r.total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`,
+    })))
 
     // Nueva página si hay partes
     if (datos.partesProducidos.length > 0 || datos.partesSobrantes.length > 0) {

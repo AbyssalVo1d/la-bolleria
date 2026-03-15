@@ -114,13 +114,14 @@ export default function VentasPage() {
 
     const sep = () => { doc.setDrawColor(150); doc.line(3, y, PW - 3, y); y += 3 }
 
-    // Logo
-    try {
-      doc.addImage(LOGO_B64, 'JPEG', cx - 10, y, 20, 10)
-      y += 13
-    } catch { y += 3 }
-
+    // Header con texto estilizado (sin imagen)
+    doc.setFontSize(28)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(146, 64, 14)
+    doc.text('B', cx, y + 2, { align: 'center' })
+    y += 12
     line('LA BOLLERÍA', 11, true)
+    doc.setTextColor(60, 60, 60)
     line('Belgrano 320, Corrientes Capital', 7)
     line('WhatsApp: 3794-540083', 7)
     y += 2
@@ -140,24 +141,27 @@ export default function VentasPage() {
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
     doc.text('Producto', 3, y)
-    doc.text('Cant', cx - 2, y, { align: 'center' })
-    doc.text('Subtotal', PW - 3, y, { align: 'right' })
+    doc.text('Cant  Subtotal', PW - 3, y, { align: 'right' })
     y += 5
     sep()
 
-    // Items
+    // Items: nombre en línea propia, luego cant + monto en línea indentada
     doc.setFont('helvetica', 'normal')
     if (items.length > 0) {
       items.forEach((it: any) => {
         const nombre = it.productos?.nombre || '—'
-        const cant = it.cantidad != null ? Number(it.cantidad).toLocaleString('es-AR') : '1'
+        const cant = it.cantidad != null ? `${Number(it.cantidad).toLocaleString('es-AR')} u` : '1 u'
         const monto = `$${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
-        const wrapped = doc.splitTextToSize(nombre, 26)
         doc.setFontSize(7)
+        // Nombre en línea completa, truncado si necesario
+        const wrapped = doc.splitTextToSize(nombre, PW - 6)
         doc.text(wrapped, 3, y)
-        doc.text(cant, cx - 2, y, { align: 'center' })
-        doc.text(monto, PW - 3, y, { align: 'right' })
-        y += wrapped.length * 4.5 + 0.5
+        y += wrapped.length * 4 + 1
+        // Cant y monto en línea siguiente, derecha
+        doc.setTextColor(100, 100, 100)
+        doc.text(`${cant}  ${monto}`, PW - 3, y, { align: 'right' })
+        doc.setTextColor(60, 60, 60)
+        y += 5
       })
     } else {
       line('(sin detalle de productos)', 7)
