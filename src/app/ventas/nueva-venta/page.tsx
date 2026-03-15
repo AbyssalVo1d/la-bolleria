@@ -207,9 +207,20 @@ export default function NuevaVentaPage() {
     setGuardando(true)
     setError('')
 
+    // Número correlativo
+    const { data: ultima } = await supabase
+      .from('ventas')
+      .select('numero_comprobante')
+      .not('numero_comprobante', 'is', null)
+      .order('numero_comprobante', { ascending: false })
+      .limit(1)
+      .single()
+    const ultimo = ultima?.numero_comprobante ? parseInt(ultima.numero_comprobante) : 0
+    const numero_comprobante = String(ultimo + 1).padStart(6, '0')
+
     const { data: venta, error: errVenta } = await supabase
       .from('ventas')
-      .insert({ monto: total, medio_pago: medioPago, cobrado_por: cobradoPor, atendido_por: atendidoPor, turno })
+      .insert({ monto: total, medio_pago: medioPago, cobrado_por: cobradoPor, atendido_por: atendidoPor, turno, numero_comprobante })
       .select()
       .single()
 
