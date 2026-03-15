@@ -146,7 +146,7 @@ export default function VentasPage() {
     if (items.length > 0) {
       items.forEach((it: any) => {
         const nombre = it.productos?.nombre || '—'
-        const cant = it.cantidad != null ? `${Number(it.cantidad).toLocaleString('es-AR')} u` : '1 u'
+        const cant = it.cantidad != null ? `${Number(it.cantidad).toLocaleString('es-AR')} ${it.productos?.unidad || 'u'}` : `1 ${it.productos?.unidad || 'u'}`
         const monto = `$${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
         doc.setFontSize(7)
         // Nombre en línea completa, truncado si necesario
