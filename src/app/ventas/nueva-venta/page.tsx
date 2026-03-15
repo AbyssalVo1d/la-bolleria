@@ -72,30 +72,29 @@ async function buildPDF(v: any, items: any[]) {
   }
   const sep = () => {
     doc.setDrawColor(0, 0, 0)
-    doc.setLineWidth(0.5)
-    doc.line(3, y, PW - 3, y)
+    doc.setLineWidth(0.8)
+    doc.line(2, y, PW - 2, y)
     y += 4
   }
 
   // Header
-  doc.setTextColor(146, 64, 14)
+  doc.setTextColor(0, 0, 0)
   doc.setFontSize(15)
   doc.setFont('helvetica', 'bold')
   doc.text('LA BOLLERÍA', cx, y, { align: 'center' })
   y += 9
-  doc.setTextColor(0, 0, 0)
-  line('Belgrano 320, Corrientes Capital', 9, false)
-  line('WhatsApp: 3794-540083', 9, false)
+  line('Belgrano 320, Corrientes Capital', 9, true)
+  line('WhatsApp: 3794-540083', 9, true)
   y += 1
   sep()
-  line(`COMPROBANTE DE PAGO Nº ${v.numero_comprobante || '------'}`, 11, true)
+  line(`COMPROBANTE DE PAGO Nº ${v.numero_comprobante || '------'}`, 8, true)
   sep()
 
   const dt = new Date(v.creado_en)
   const fecha = dt.toLocaleDateString('es-AR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' })
   const hora = dt.toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
-  line(`Fecha: ${fecha}   Hora: ${hora}`, 10, false)
-  line('Cliente: General', 10, false)
+  line(`Fecha: ${fecha}   Hora: ${hora}`, 10, true)
+  line('Cliente: General', 10, true)
   y += 1
   sep()
 
@@ -103,8 +102,8 @@ async function buildPDF(v: any, items: any[]) {
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
-  doc.text('Producto', 3, y)
-  doc.text('Cant  Subtotal', PW - 3, y, { align: 'right' })
+  doc.text('Producto', 2, y)
+  doc.text('Cant  Subtotal', PW - 2, y, { align: 'right' })
   y += 5
   sep()
 
@@ -117,38 +116,34 @@ async function buildPDF(v: any, items: any[]) {
         ? `${Number(String(it.cantidad).replace(',', '.')).toLocaleString('es-AR')} ${unidad}`
         : `1 ${unidad}`
       const monto = `$${Number(it.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
-      // Nombre — línea completa
       doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
-      const wrapped = doc.splitTextToSize(nombre, PW - 6)
-      doc.text(wrapped, 3, y)
+      const wrapped = doc.splitTextToSize(nombre, PW - 4)
+      doc.text(wrapped, 2, y)
       y += wrapped.length * 4.5
-      // Cant + monto en siguiente línea, juntos a la derecha
-      doc.setFont('helvetica', 'normal')
-      doc.text(`${cant}  ${monto}`, PW - 3, y, { align: 'right' })
+      doc.text(`${cant}  ${monto}`, PW - 2, y, { align: 'right' })
       y += 6
     })
   } else {
-    line('(sin detalle de productos)', 10, false)
+    line('(sin detalle de productos)', 9, true)
   }
 
   sep()
   const total = `$${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
   doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.setTextColor(0, 0, 0)
-  doc.text('Subtotal:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 6
-  doc.text('Descuento (0%):', 3, y); doc.text('-$0,00', PW - 3, y, { align: 'right' }); y += 6
   doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
+  doc.text('Subtotal:', 2, y); doc.text(total, PW - 2, y, { align: 'right' }); y += 6
+  doc.text('Descuento (0%):', 2, y); doc.text('-$0,00', PW - 2, y, { align: 'right' }); y += 6
   doc.setFontSize(12)
-  doc.text('TOTAL:', 3, y); doc.text(total, PW - 3, y, { align: 'right' }); y += 7
+  doc.text('TOTAL:', 2, y); doc.text(total, PW - 2, y, { align: 'right' }); y += 7
   sep()
-  line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 10, false)
+  line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 10, true)
   y += 2
   line('¡Que lo disfrute!', 11, true)
   y += 3
-  line('DOCUMENTO NO VÁLIDO COMO FACTURA', 8, false)
+  line('DOCUMENTO NO VÁLIDO COMO FACTURA', 7, true)
 
   return doc
 }
