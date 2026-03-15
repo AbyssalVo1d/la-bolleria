@@ -5,6 +5,46 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const TZ = 'America/Argentina/Buenos_Aires'
+const COLORES = ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d']
+
+function GraficoBarras({ datos, dataKey, formatear }: {
+  datos: { nombre: string, [k: string]: any }[]
+  dataKey: string
+  formatear: (v: number) => string
+}) {
+  const [tooltip, setTooltip] = useState<{ nombre: string, valor: string } | null>(null)
+  const maximo = Math.max(...datos.map(d => d[dataKey]), 1)
+  return (
+    <div className="relative space-y-3">
+      {datos.map((d, i) => {
+        const pct = (d[dataKey] / maximo) * 100
+        return (
+          <div key={d.nombre} className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold text-gray-700">{d.nombre}</span>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-6 bg-gray-50 rounded-lg overflow-hidden">
+                <div className="h-full rounded-lg cursor-pointer transition-opacity hover:opacity-85"
+                  style={{ width: `${pct}%`, backgroundColor: COLORES[i % COLORES.length], minWidth: pct > 0 ? '8px' : '0' }}
+                  onMouseEnter={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                  onMouseLeave={() => setTooltip(null)}
+                  onTouchStart={() => setTooltip({ nombre: d.nombre, valor: formatear(d[dataKey]) })}
+                  onTouchEnd={() => setTimeout(() => setTooltip(null), 1500)}
+                />
+              </div>
+              <span className="text-xs font-bold text-amber-700 shrink-0 w-28 text-right">{formatear(d[dataKey])}</span>
+            </div>
+          </div>
+        )
+      })}
+      {tooltip && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-white border border-amber-200 rounded-lg shadow px-3 py-2 text-sm z-10 pointer-events-none">
+          <p className="font-semibold text-gray-800 mb-1">{tooltip.nombre}</p>
+          <p className="text-amber-700 font-bold">{tooltip.valor}</p>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function hoyAR() {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ })
@@ -117,11 +157,12 @@ export default function CierreDiaPage() {
       rankCobro[n].total += Number(v.monto)
       rankCobro[n].cant += 1
     })
-    const rankAtencion: Record<string, { nombre: string, cant: number }> = {}
+    const rankAtencion: Record<string, { nombre: string, cant: number, total: number }> = {}
     ventas.forEach((v: any) => {
       const n = v.atendedor_nombre
-      if (!rankAtencion[n]) rankAtencion[n] = { nombre: n, cant: 0 }
+      if (!rankAtencion[n]) rankAtencion[n] = { nombre: n, cant: 0, total: 0 }
       rankAtencion[n].cant += 1
+      rankAtencion[n].total += Number(v.monto)
     })
     const medios: Record<string, number> = {}
     ventas.forEach((v: any) => {
@@ -350,40 +391,42 @@ export default function CierreDiaPage() {
                   {Object.entries(datos.medios).map(([m, monto]: any) => (
                     <div key={m} className="flex justify-between text-sm">
                       <span className="text-gray-600">{MEDIO_LABEL[m] || m}</span>
-                      <span className="font-medium">${Number(monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
+                      <span className="font-bold text-gray-900">${Number(monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Ranking cobradoras */}
-            {datos.rankCobro.length > 0 && (
-              <div className="bg-white rounded-xl shadow px-5 py-4">
-                <p className="text-sm font-semibold text-gray-700 mb-3">Quién cobró más</p>
-                <div className="space-y-1.5">
-                  {datos.rankCobro.map((r: any, i: number) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{i + 1}. {r.nombre} <span className="text-gray-400">({r.cant})</span></span>
-                      <span className="font-medium">${r.total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Ranking atención */}
+            {/* Ranking atención — primero */}
             {datos.rankAtencion.length > 0 && (
               <div className="bg-white rounded-xl shadow px-5 py-4">
-                <p className="text-sm font-semibold text-gray-700 mb-3">Quién atendió más</p>
-                <div className="space-y-1.5">
+                <p className="text-sm font-semibold text-gray-700 mb-4">🙋 Quién atendió más</p>
+                <GraficoBarras
+                  datos={datos.rankAtencion.map((r: any) => ({ nombre: r.nombre, valor: r.cant, monto: r.total }))}
+                  dataKey="valor"
+                  formatear={(v) => `${v} cliente${v !== 1 ? 's' : ''}`}
+                />
+                <div className="mt-3 space-y-1">
                   {datos.rankAtencion.map((r: any, i: number) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{i + 1}. {r.nombre}</span>
-                      <span className="font-medium text-gray-500">{r.cant} cliente{r.cant !== 1 ? 's' : ''}</span>
+                    <div key={i} className="flex justify-between text-xs text-gray-500">
+                      <span>{i + 1}. {r.nombre}</span>
+                      <span className="font-medium text-gray-700">${r.total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Ranking cobradoras — segundo */}
+            {datos.rankCobro.length > 0 && (
+              <div className="bg-white rounded-xl shadow px-5 py-4">
+                <p className="text-sm font-semibold text-gray-700 mb-4">💵 Quién cobró más</p>
+                <GraficoBarras
+                  datos={datos.rankCobro.map((r: any) => ({ nombre: r.nombre, valor: r.total }))}
+                  dataKey="valor"
+                  formatear={(v) => `$${v.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`}
+                />
               </div>
             )}
 
