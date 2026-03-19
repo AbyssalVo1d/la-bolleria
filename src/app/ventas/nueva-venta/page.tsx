@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const TZ = 'America/Argentina/Buenos_Aires'
-const LOGO_B64 = 'data:image/jpeg;base64,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'
+const LOGO_B64 = 'data:image/jpeg;base64,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'
 
 const MEDIOS_PAGO = [
   { value: 'efectivo',      label: '💵 Efectivo' },
@@ -15,7 +15,7 @@ const MEDIOS_PAGO = [
 ]
 
 const MEDIO_ES: Record<string, string> = {
-  efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia',
+  efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia', mixto: 'Múltiples medios',
 }
 
 interface Producto {
@@ -30,6 +30,11 @@ interface ItemVenta {
   productoId: string
   productoNombre: string
   cantidad: string
+  monto: string
+}
+
+interface MedioPagoEntry {
+  medio: string
   monto: string
 }
 
@@ -78,7 +83,7 @@ async function buildPDF(v: any, items: any[]) {
     y += 4
   }
 
-  // Header: logo sobre fondo negro + texto debajo
+  // Header
   const logoW = 44, logoH = 22, logoX = (PW - logoW) / 2
   doc.setFillColor(0, 0, 0)
   doc.rect(logoX, y, logoW, logoH, 'F')
@@ -105,7 +110,6 @@ async function buildPDF(v: any, items: any[]) {
   y += 1
   sep()
 
-  // Encabezado tabla
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
@@ -114,7 +118,6 @@ async function buildPDF(v: any, items: any[]) {
   y += 5
   sep()
 
-  // Items: nombre en línea propia, cant+subtotal en línea siguiente (derecha)
   if (items.length > 0) {
     items.forEach((it: any) => {
       const nombre = it.productos?.nombre || it.productoNombre || '—'
@@ -146,7 +149,18 @@ async function buildPDF(v: any, items: any[]) {
   doc.setFontSize(12)
   doc.text('TOTAL:', 2, y); doc.text(total, PW - 2, y, { align: 'right' }); y += 7
   sep()
-  line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 10, true)
+
+  // Medios de pago: múltiples o uno solo
+  if (v.medios_pago && v.medios_pago.length > 0) {
+    line('Medios de pago:', 10, true)
+    v.medios_pago.forEach((m: any) => {
+      const label = `${MEDIO_ES[m.medio] || m.medio}: $${Number(m.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+      line(label, 9, true)
+    })
+  } else {
+    line(`Medio de pago: ${MEDIO_ES[v.medio_pago] || v.medio_pago}`, 10, true)
+  }
+
   y += 2
   line('¡Que lo disfrute!', 11, true)
   y += 3
@@ -235,7 +249,7 @@ function BuscadorProducto({
 export default function NuevaVentaPage() {
   const [items, setItems] = useState<ItemVenta[]>([{ productoId: '', productoNombre: '', cantidad: '', monto: '' }])
   const [productos, setProductos] = useState<Producto[]>([])
-  const [medioPago, setMedioPago] = useState('efectivo')
+  const [mediosPago, setMediosPago] = useState<MedioPagoEntry[]>([{ medio: 'efectivo', monto: '' }])
   const [turno, setTurno] = useState(turnoSegunHora())
   const [cobradoPor, setCobradoPor] = useState('')
   const [atendidoPor, setAtendidoPor] = useState('')
@@ -301,6 +315,49 @@ export default function NuevaVentaPage() {
 
   const total = items.reduce((s, it) => s + parsNum(it.monto), 0)
 
+  // --- Múltiples medios de pago ---
+
+  // Cuando hay un solo medio, sincronizar su monto con el total
+  useEffect(() => {
+    if (mediosPago.length === 1) {
+      setMediosPago([{ ...mediosPago[0], monto: total > 0 ? fmtMonto(String(Math.round(total))) : '' }])
+    }
+  }, [total])
+
+  const totalMediosPago = mediosPago.reduce((s, m) => s + parsNum(m.monto), 0)
+  const restante = Math.round((total - totalMediosPago) * 100) / 100
+
+  const agregarMedioPago = () => {
+    if (mediosPago.length >= MEDIOS_PAGO.length) return
+    const usados = mediosPago.map(m => m.medio)
+    const siguiente = MEDIOS_PAGO.find(m => !usados.includes(m.value))?.value || 'efectivo'
+    const restanteActual = Math.round((total - mediosPago.reduce((s, m) => s + parsNum(m.monto), 0)) * 100) / 100
+    setMediosPago([
+      ...mediosPago,
+      { medio: siguiente, monto: restanteActual > 0 ? fmtMonto(String(Math.round(restanteActual))) : '' }
+    ])
+  }
+
+  const quitarMedioPago = (i: number) => {
+    if (mediosPago.length <= 1) return
+    const nuevos = mediosPago.filter((_, idx) => idx !== i)
+    setMediosPago(nuevos)
+  }
+
+  const actualizarMedioEntry = (i: number, medio: string) => {
+    const nuevos = [...mediosPago]
+    nuevos[i] = { ...nuevos[i], medio }
+    setMediosPago(nuevos)
+  }
+
+  const actualizarMontoMedio = (i: number, val: string) => {
+    const nuevos = [...mediosPago]
+    nuevos[i] = { ...nuevos[i], monto: fmtMonto(val) }
+    setMediosPago(nuevos)
+  }
+
+  // --- Guardar ---
+
   const guardar = async () => {
     if (items.every(it => !it.productoId)) { setError('Agregá al menos un producto'); return }
     for (let i = 0; i < items.length; i++) {
@@ -311,10 +368,19 @@ export default function NuevaVentaPage() {
     if (!cobradoPor) { setError('Indicá quién cobró'); return }
     if (!atendidoPor) { setError('Indicá quién atendió'); return }
 
+    // Validar pagos múltiples
+    if (mediosPago.length > 1) {
+      if (restante !== 0) {
+        setError(restante > 0
+          ? `Falta distribuir $${restante.toLocaleString('es-AR')} entre los medios de pago`
+          : `El monto ingresado supera el total por $${Math.abs(restante).toLocaleString('es-AR')}`)
+        return
+      }
+    }
+
     setGuardando(true)
     setError('')
 
-    // Número correlativo
     const { data: ultima } = await supabase
       .from('ventas')
       .select('numero_comprobante')
@@ -325,9 +391,26 @@ export default function NuevaVentaPage() {
     const ultimo = ultima?.numero_comprobante ? parseInt(ultima.numero_comprobante) : 0
     const numero_comprobante = String(ultimo + 1).padStart(6, '0')
 
+    // Preparar datos de medios de pago
+    const esMultiple = mediosPago.length > 1
+    const medioPagoStr = esMultiple ? 'mixto' : mediosPago[0].medio
+    const mediosPagoData = esMultiple
+      ? mediosPago.map(m => ({ medio: m.medio, monto: parsNum(m.monto) }))
+      : null
+
+    const ventaPayload: any = {
+      monto: total,
+      medio_pago: medioPagoStr,
+      cobrado_por: cobradoPor,
+      atendido_por: atendidoPor,
+      turno,
+      numero_comprobante,
+    }
+    if (mediosPagoData) ventaPayload.medios_pago = mediosPagoData
+
     const { data: venta, error: errVenta } = await supabase
       .from('ventas')
-      .insert({ monto: total, medio_pago: medioPago, cobrado_por: cobradoPor, atendido_por: atendidoPor, turno, numero_comprobante })
+      .insert(ventaPayload)
       .select()
       .single()
 
@@ -353,7 +436,6 @@ export default function NuevaVentaPage() {
       return
     }
 
-    // Preparar items para el PDF (enriquecer con nombre y unidad del producto)
     const itemsConDatos = itemsValidos.map(it => {
       const prod = productoById(it.productoId)
       return {
@@ -364,7 +446,8 @@ export default function NuevaVentaPage() {
       }
     })
 
-    setVentaGuardada(venta)
+    // Enriquecer venta guardada con medios_pago para el PDF
+    setVentaGuardada({ ...venta, medios_pago: mediosPagoData })
     setItemsGuardados(itemsConDatos)
     setGuardando(false)
   }
@@ -373,7 +456,7 @@ export default function NuevaVentaPage() {
     setVentaGuardada(null)
     setItemsGuardados([])
     setItems([{ productoId: '', productoNombre: '', cantidad: '', monto: '' }])
-    setMedioPago('efectivo')
+    setMediosPago([{ medio: 'efectivo', monto: '' }])
     setTurno(turnoSegunHora())
     setError('')
   }
@@ -392,7 +475,15 @@ export default function NuevaVentaPage() {
             <p className="text-2xl font-bold text-blue-700 mt-2">
               ${Number(ventaGuardada.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
             </p>
-            <p className="text-sm text-gray-500">{MEDIO_ES[ventaGuardada.medio_pago] || ventaGuardada.medio_pago}</p>
+            {ventaGuardada.medios_pago ? (
+              <div className="text-sm text-gray-500 mt-1 space-y-0.5">
+                {ventaGuardada.medios_pago.map((m: any, i: number) => (
+                  <p key={i}>{MEDIO_ES[m.medio] || m.medio}: ${Number(m.monto).toLocaleString('es-AR')}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">{MEDIO_ES[ventaGuardada.medio_pago] || ventaGuardada.medio_pago}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -433,6 +524,8 @@ export default function NuevaVentaPage() {
       </div>
     )
   }
+
+  const mediosUsados = mediosPago.map(m => m.medio)
 
   return (
     <div className="min-h-screen bg-amber-50">
@@ -512,20 +605,77 @@ export default function NuevaVentaPage() {
           </span>
         </div>
 
-        <div className="bg-white rounded-xl shadow p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Medio de pago *</label>
-          <div className="grid grid-cols-2 gap-2">
-            {MEDIOS_PAGO.map(m => (
-              <button key={m.value} type="button" onClick={() => setMedioPago(m.value)}
-                className={`py-2 px-3 rounded-lg border text-sm font-medium transition ${
-                  medioPago === m.value
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-blue-400'
-                }`}>
-                {m.label}
-              </button>
+        {/* Medios de pago */}
+        <div className="bg-white rounded-xl shadow p-4 space-y-3">
+          <label className="block text-sm font-medium text-gray-700">Medio de pago *</label>
+
+          <div className="space-y-2">
+            {mediosPago.map((entry, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <select
+                  value={entry.medio}
+                  onChange={e => actualizarMedioEntry(i, e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  {MEDIOS_PAGO.map(m => (
+                    <option key={m.value} value={m.value} disabled={mediosUsados.includes(m.value) && m.value !== entry.medio}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+
+                {mediosPago.length > 1 && (
+                  <div className="relative w-32">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={entry.monto}
+                      onChange={e => actualizarMontoMedio(i, e.target.value)}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded-lg pl-6 pr-2 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                )}
+
+                {mediosPago.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => quitarMedioPago(i)}
+                    className="text-red-400 hover:text-red-600 text-sm font-medium px-2"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
           </div>
+
+          {/* Restante (solo cuando hay múltiples medios) */}
+          {mediosPago.length > 1 && (
+            <div className={`flex justify-between items-center px-3 py-2 rounded-lg text-sm font-medium ${
+              restante === 0
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : restante < 0
+                  ? 'bg-red-50 text-red-600 border border-red-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }`}>
+              <span>{restante === 0 ? '✅ Monto completo' : restante < 0 ? '⚠️ Excede el total' : 'Restante'}</span>
+              {restante !== 0 && (
+                <span>${Math.abs(restante).toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
+              )}
+            </div>
+          )}
+
+          {mediosPago.length < MEDIOS_PAGO.length && (
+            <button
+              type="button"
+              onClick={agregarMedioPago}
+              className="w-full border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 text-sm py-2 rounded-lg transition"
+            >
+              + Agregar otro medio de pago
+            </button>
+          )}
         </div>
 
         <div className="bg-white rounded-xl shadow p-4">
