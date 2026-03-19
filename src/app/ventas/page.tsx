@@ -136,7 +136,7 @@ export default function VentasPage() {
     const logoB64 = LOGO_BOLLERIA
     if (logoB64) {
       doc.addImage(logoB64, 'JPEG', logoX, y, logoW, logoH)
-      y += logoH + 3
+      y += logoH + 7
     }
     doc.setTextColor(0, 0, 0)
     doc.setFontSize(15)
