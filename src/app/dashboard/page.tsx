@@ -207,7 +207,7 @@ export default function DashboardPage() {
       const ids = [...new Set([...rows.map((v: any) => v.cobrado_por), ...rows.map((v: any) => v.atendido_por)])]
       const { data: users } = await supabase.from('usuarios').select('id,nombre').in('id', ids)
       const map: Record<string, string> = Object.fromEntries((users || []).map((u: any) => [u.id, u.nombre]))
-      setVentas(rows.map((v: any) => ({
+      setVentas(rows.filter((v: any) => !v.cancelada).map((v: any) => ({
         ...v,
         cobrador_nombre: map[v.cobrado_por] || 'Sin nombre',
         atendedor_nombre: map[v.atendido_por] || 'Sin nombre',
@@ -280,7 +280,7 @@ export default function DashboardPage() {
     const MEDIO_ES: Record<string, string> = {
       efectivo: 'Efectivo', debito: 'Débito', credito: 'Crédito', transferencia: 'Transferencia',
     }
-    const filasVentas = (ventasRows || []).map((v: any) => ({
+    const filasVentas = (ventasRows || []).filter((v: any) => !v.cancelada).map((v: any) => ({
       Fecha: new Date(v.creado_en).toLocaleString('es-AR', { timeZone: TZ }),
       Monto: Number(v.monto),
       'Medio de pago': MEDIO_ES[v.medio_pago] || v.medio_pago,
