@@ -144,7 +144,7 @@ export default function CierreDiaPage() {
 
   // Filtro client-side por turno
   const ventasFiltradas = todosLosDatos
-    ? turno ? todosLosDatos.ventas.filter((v: any) => v.turno === turno) : todosLosDatos.ventas
+    ? todosLosDatos.ventas.filter((v: any) => !v.cancelada && (!turno || v.turno === turno))
     : []
 
   const datos = todosLosDatos ? (() => {
@@ -166,7 +166,13 @@ export default function CierreDiaPage() {
     })
     const medios: Record<string, number> = {}
     ventas.forEach((v: any) => {
-      medios[v.medio_pago] = (medios[v.medio_pago] || 0) + Number(v.monto)
+      if (v.medios_pago && v.medios_pago.length > 0) {
+        v.medios_pago.forEach((m: any) => {
+          medios[m.medio] = (medios[m.medio] || 0) + Number(m.monto)
+        })
+      } else {
+        medios[v.medio_pago] = (medios[v.medio_pago] || 0) + Number(v.monto)
+      }
     })
     return {
       ventas,
