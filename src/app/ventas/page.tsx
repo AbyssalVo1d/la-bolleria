@@ -230,7 +230,7 @@ export default function VentasPage() {
   const cancelarVenta = async (v: any) => {
     setConfirmandoCancelar(null)
     setCancelando(v.id)
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('ventas')
       .update({
         cancelada: true,
@@ -238,9 +238,12 @@ export default function VentasPage() {
         cancelada_en: new Date().toISOString(),
       })
       .eq('id', v.id)
+      .select('id')
     setCancelando(null)
     if (error) {
       alert('Error al cancelar: ' + error.message)
+    } else if (!updated || updated.length === 0) {
+      alert('No se pudo cancelar: sin permiso o la venta no existe.')
     } else {
       await cargarVentas(filtroFecha)
     }
