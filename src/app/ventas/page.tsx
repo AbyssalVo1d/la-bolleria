@@ -51,6 +51,7 @@ export default function VentasPage() {
   const [userRol, setUserRol] = useState('')
   const [userId, setUserId] = useState('')
   const [cancelando, setCancelando] = useState<number | null>(null)
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState<number | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -227,7 +228,7 @@ export default function VentasPage() {
   }
 
   const cancelarVenta = async (v: any) => {
-    if (!confirm(`¿Cancelar la venta #${v.numero_comprobante || v.id}? Esta acción no se puede deshacer.`)) return
+    setConfirmandoCancelar(null)
     setCancelando(v.id)
     const { error } = await supabase
       .from('ventas')
@@ -263,7 +264,7 @@ export default function VentasPage() {
   const renderVenta = (v: any, esCancelada = false) => {
     const items = itemsPorVenta[v.id] || []
     return (
-      <div key={v.id} className={`bg-white rounded-xl shadow px-5 py-3 ${esCancelada ? 'opacity-60' : ''}`}>
+      <div key={v.id} className={`bg-white rounded-xl shadow px-5 py-3 ${esCancelada ? 'opacity-60 border-l-4 border-red-400' : ''}`}>
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
@@ -325,14 +326,29 @@ export default function VentasPage() {
                     title="Guardar PDF"
                   >💾</button>
                   {userRol === 'admin' && (
-                    <button
-                      onClick={() => cancelarVenta(v)}
-                      disabled={cancelando === v.id}
-                      className="text-sm font-medium text-red-500 hover:bg-red-50 transition px-5 py-3 rounded-lg border border-red-200 hover:border-red-400 disabled:opacity-50"
-                      title="Cancelar venta"
-                    >
-                      {cancelando === v.id ? '...' : '🚫'}
-                    </button>
+                    confirmandoCancelar === v.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-red-600 font-medium">¿Cancelar?</span>
+                        <button
+                          onClick={() => cancelarVenta(v)}
+                          disabled={cancelando === v.id}
+                          className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition px-3 py-2 rounded-lg disabled:opacity-50"
+                        >Sí</button>
+                        <button
+                          onClick={() => setConfirmandoCancelar(null)}
+                          className="text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition px-3 py-2 rounded-lg"
+                        >No</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmandoCancelar(v.id)}
+                        disabled={cancelando === v.id}
+                        className="text-sm font-medium text-red-500 hover:bg-red-50 transition px-5 py-3 rounded-lg border border-red-200 hover:border-red-400 disabled:opacity-50"
+                        title="Cancelar venta"
+                      >
+                        {cancelando === v.id ? '...' : '🚫'}
+                      </button>
+                    )
                   )}
                 </>
               )}
