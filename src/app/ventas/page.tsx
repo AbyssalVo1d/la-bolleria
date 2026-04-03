@@ -230,20 +230,15 @@ export default function VentasPage() {
   const cancelarVenta = async (v: any) => {
     setConfirmandoCancelar(null)
     setCancelando(v.id)
-    const { data: updated, error } = await supabase
-      .from('ventas')
-      .update({
-        cancelada: true,
-        cancelada_por: userId,
-        cancelada_en: new Date().toISOString(),
-      })
-      .eq('id', v.id)
-      .select('id')
+    const res = await fetch('/api/cancelar-venta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ventaId: v.id, userId }),
+    })
+    const json = await res.json()
     setCancelando(null)
-    if (error) {
-      alert('Error al cancelar: ' + error.message)
-    } else if (!updated || updated.length === 0) {
-      alert('No se pudo cancelar: sin permiso o la venta no existe.')
+    if (!res.ok) {
+      alert('Error al cancelar: ' + (json.error || res.status))
     } else {
       await cargarVentas(filtroFecha)
     }
