@@ -174,6 +174,9 @@ export default function CierreDiaPage() {
         medios[v.medio_pago] = (medios[v.medio_pago] || 0) + Number(v.monto)
       }
     })
+    const ventasCanceladas = todosLosDatos.ventas.filter((v: any) => v.cancelada && (!turno || v.turno === turno))
+    const totalCancelado = ventasCanceladas.reduce((s: number, v: any) => s + Number(v.monto), 0)
+
     return {
       ventas,
       totalVentas,
@@ -181,6 +184,8 @@ export default function CierreDiaPage() {
       rankCobro: Object.values(rankCobro).sort((a: any, b: any) => b.total - a.total),
       rankAtencion: Object.values(rankAtencion).sort((a: any, b: any) => b.cant - a.cant),
       medios,
+      ventasCanceladas,
+      totalCancelado,
       partesProducidos: todosLosDatos.partesProducidos,
       partesSobrantes: todosLosDatos.partesSobrantes,
     }
@@ -254,6 +259,25 @@ export default function CierreDiaPage() {
     separador()
     lineaDerecha('Total vendido:', `$${datos.totalVentas.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, 12)
     lineaDerecha('Cantidad de ventas:', String(datos.cantVentas), 10)
+    if (datos.ventasCanceladas.length > 0) {
+      saltarLinea(2)
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(185, 28, 28)
+      doc.text('Ventas canceladas:', margin, y)
+      doc.setFont('helvetica', 'normal')
+      doc.text(`${datos.ventasCanceladas.length} venta${datos.ventasCanceladas.length !== 1 ? 's' : ''} · -$${datos.totalCancelado.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, colR, y, { align: 'right' })
+      doc.setTextColor(0, 0, 0)
+      datos.ventasCanceladas.forEach((v: any) => {
+        y += 5
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(120, 0, 0)
+        doc.text(`  #${v.numero_comprobante || v.id} — ${v.cobrador_nombre} — $${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, margin, y)
+        doc.setTextColor(0, 0, 0)
+      })
+      y += 4
+    }
     saltarLinea()
 
     // Medios de pago
@@ -440,6 +464,29 @@ export default function CierreDiaPage() {
                       <span className="font-bold text-gray-900">${Number(monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ventas canceladas */}
+            {datos.ventasCanceladas.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl shadow px-5 py-4">
+                <p className="text-sm font-semibold text-red-700 mb-2">🚫 Ventas canceladas</p>
+                <div className="space-y-1.5">
+                  {datos.ventasCanceladas.map((v: any) => (
+                    <div key={v.id} className="flex justify-between text-sm">
+                      <span className="text-red-600">
+                        #{v.numero_comprobante || v.id} · {v.cobrador_nombre}
+                      </span>
+                      <span className="font-semibold text-red-700 line-through">
+                        ${Number(v.monto).toLocaleString('es-AR', { minimumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-red-200 flex justify-between text-sm font-semibold text-red-700">
+                  <span>{datos.ventasCanceladas.length} cancelada{datos.ventasCanceladas.length !== 1 ? 's' : ''}</span>
+                  <span>-${datos.totalCancelado.toLocaleString('es-AR', { minimumFractionDigits: 0 })}</span>
                 </div>
               </div>
             )}
